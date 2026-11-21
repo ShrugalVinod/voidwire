@@ -1,5 +1,6 @@
 [package]
 name = "vw-crypto"
+description = "VoidWire cryptography: hybrid X25519+ML-KEM-1024, HKDF-BLAKE3, Ed25519 identities, blind tokens, VWCP"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -7,3 +8,21 @@ rust-version.workspace = true
 
 [dependencies]
 vw-core.workspace = true
+blake3 = { workspace = true, features = ["zeroize"] }
+hex.workspace = true
+rand.workspace = true
+serde.workspace = true
+subtle.workspace = true
+thiserror.workspace = true
+zeroize.workspace = true
+blind-rsa-signatures = { version = "0.19.0", default-features = false }
+ed25519-dalek = "3.0.0"
+ml-kem = { version = "0.3.3", features = ["zeroize", "getrandom"] }
+x25519-dalek = { version = "3.0.0", features = ["getrandom"] }
+
+[dev-dependencies]
+serde_json.workspace = true
+
+# Portable SIMD build on Windows (no C toolchain needed for cross type-checks).
+[target.'cfg(windows)'.dependencies]
+blake3 = { workspace = true, features = ["pure", "zeroize"] }
