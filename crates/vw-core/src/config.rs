@@ -401,7 +401,7 @@ pub enum DnsUpstream {
 impl DnsUpstream {
     pub fn default_odoh() -> Self {
         DnsUpstream::Odoh {
-            proxy_url: "https://odoh-relay.edgecompute.app/proxy".into(),
+            proxy_url: "https://odoh1.surfdomeinen.nl/proxy".into(),
             target_host: "odoh.cloudflare-dns.com".into(),
             target_path: "/dns-query".into(),
         }

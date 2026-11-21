@@ -1,0 +1,127 @@
+# VoidWire Shield built-in list: OS, device and application telemetry.
+# Deliberately EXCLUDES anything needed for OS/app updates, certificate
+# validation (OCSP/CRL/CTL), time sync, captive-portal / connectivity checks,
+# push notifications and safe-browsing lookups.
+# Microsoft Windows / Office diagnostics
+vortex.data.microsoft.com
+vortex-win.data.microsoft.com
+v10.vortex-win.data.microsoft.com
+us.vortex-win.data.microsoft.com
+eu.vortex-win.data.microsoft.com
+v10.events.data.microsoft.com
+v20.events.data.microsoft.com
+us-v10.events.data.microsoft.com
+eu-v10.events.data.microsoft.com
+us-v20.events.data.microsoft.com
+eu-v20.events.data.microsoft.com
+self.events.data.microsoft.com
+mobile.events.data.microsoft.com
+umwatson.events.data.microsoft.com
+kmwatson.events.data.microsoft.com
+watson.events.data.microsoft.com
+modern.watson.data.microsoft.com
+watson.telemetry.microsoft.com
+watson.microsoft.com
+watson.ppe.telemetry.microsoft.com
+telemetry.microsoft.com
+telecommand.telemetry.microsoft.com
+oca.telemetry.microsoft.com
+oca.microsoft.com
+sqm.telemetry.microsoft.com
+sqm.df.telemetry.microsoft.com
+df.telemetry.microsoft.com
+wes.df.telemetry.microsoft.com
+reports.wes.df.telemetry.microsoft.com
+services.wes.df.telemetry.microsoft.com
+telemetry.appex.bing.net
+telemetry.urs.microsoft.com
+choice.microsoft.com
+browser.events.data.msn.com
+mobile.pipe.aria.microsoft.com
+browser.pipe.aria.microsoft.com
+pipe.aria.microsoft.com
+nexus.officeapps.live.com
+nexusrules.officeapps.live.com
+activity.windows.com
+arc.msn.com
+ris.api.iris.microsoft.com
+dc.services.visualstudio.com
+dc.applicationinsights.azure.com
+dc.applicationinsights.microsoft.com
+default.exp-tas.com
+copilot-telemetry.githubusercontent.com
+# Apple analytics (not updates, OCSP, iCloud or push)
+metrics.icloud.com
+metrics.apple.com
+securemetrics.apple.com
+supportmetrics.apple.com
+metrics.mzstatic.com
+iphonesubmissions.apple.com
+radarsubmissions.apple.com
+stocks-analytics-events.apple.com
+weather-analytics-events.apple.com
+notes-analytics-events.apple.com
+books-analytics-events.apple.com
+news-events.apple.com
+iadsdk.apple.com
+api-adservices.apple.com
+# Google / Firebase SDK logging
+firebaselogging-pa.googleapis.com
+firebaselogging.googleapis.com
+crashlyticsreports-pa.googleapis.com
+reports.crashlytics.com
+e.crashlytics.com
+settings.crashlytics.com
+# Browsers
+incoming.telemetry.mozilla.org
+crash-reports.mozilla.com
+p3a.brave.com
+p3a-json.brave.com
+p2a.brave.com
+p2a-json.brave.com
+# Linux distributions
+metrics.ubuntu.com
+popcon.ubuntu.com
+daisy.ubuntu.com
+popcon.debian.org
+# Smart TVs, streaming sticks, ACR (automatic content recognition)
+samsungacr.com
+samsungads.com
+lgsmartad.com
+ad.lgappstv.com
+tvinteractive.tv
+alphonso.tv
+logs.roku.com
+scribe.logs.roku.com
+cooper.logs.roku.com
+ads.roku.com
+# Amazon devices
+device-metrics-us.amazon.com
+device-metrics-us-2.amazon.com
+mads-eu.amazon.com
+unagi.amazon.com
+unagi-na.amazon.com
+fls-na.amazon.com
+fls-eu.amazon.com
+# Android OEMs
+tracking.miui.com
+data.mistat.xiaomi.com
+data.mistat.intl.xiaomi.com
+data.mistat.rus.xiaomi.com
+metrics.data.hicloud.com
+logservice.hicloud.com
+logservice1.hicloud.com
+open.oneplus.net
+dc.dqa.samsung.com
+# GPU / hardware vendors
+events.gfe.nvidia.com
+telemetry.gfe.nvidia.com
+# Applications and SDKs
+cc-api-data.adobe.io
+telemetry.dropbox.com
+cdp.cloud.unity3d.com
+perf-events.cloud.unity3d.com
+api.uca.cloud.unity3d.com
+stats.unity3d.com
+ichnaea.netflix.com
+f-log-extension.grammarly.io

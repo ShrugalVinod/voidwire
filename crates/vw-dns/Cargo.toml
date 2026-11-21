@@ -1,5 +1,6 @@
 [package]
 name = "vw-dns"
+description = "VoidWire DNS vault: DoH/DoT/ODoH upstreams, Shield blocklists with CNAME uncloaking, port-53 interception"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -7,3 +8,25 @@ rust-version.workspace = true
 
 [dependencies]
 vw-core.workspace = true
+async-trait.workspace = true
+rand.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["net", "time", "sync", "rt", "macros", "io-util"] }
+tracing.workspace = true
+zeroize.workspace = true
+hickory-proto = { version = "0.25.2", default-features = false, features = ["std"] }
+reqwest = { version = "0.13.5", default-features = false, features = ["http2", "rustls-no-provider"] }
+rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+tokio-rustls = { version = "0.26.6", default-features = false, features = ["ring"] }
+webpki-roots = "1.0.12"
+ring = "0.17.14"
+arc-swap = "1.9.5"
+lru = "0.19.1"
+hpke = { version = "0.14.1", default-features = false, features = ["x25519", "aes", "hkdfsha2", "getrandom", "alloc"] }
+
+[dev-dependencies]
+bytes.workspace = true
+tokio = { workspace = true, features = ["full"] }
+h2 = "0.4.20"
+http = "1.5.0"
+rcgen = { version = "0.14.7", default-features = false, features = ["crypto", "ring", "pem"] }
