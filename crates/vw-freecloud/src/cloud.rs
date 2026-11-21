@@ -22,7 +22,7 @@ use vw_core::consts::{DEFAULT_MASQUE_PORT, DEFAULT_NODE_UDP_PORT, DEFAULT_TLS_PO
 use vw_core::{Result, VwError};
 
 /// Default location of release artifacts (overridable per bundle).
-pub const DEFAULT_RELEASE_BASE: &str = "https://github.com/voidwire-vpn/voidwire/releases/download";
+pub const DEFAULT_RELEASE_BASE: &str = "https://github.com/ShrugalVinod/voidwire/releases/download";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
