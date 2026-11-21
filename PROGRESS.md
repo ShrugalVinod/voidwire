@@ -5,28 +5,29 @@ Update after every milestone. `[x]` = done and verified (fmt + clippy + tests).
 ## Foundation
 - [x] Rust toolchain (stable 1.100) + windows/x64-darwin targets
 - [x] PROMPT.md, CLAUDE.md, ARCHITECTURE.md
-- [ ] Workspace scaffold (12 crates)
-- [ ] vw-core: consts, errors, secrets, configs, URIs, Iron Dome FSM, packet parsing, IPC, transport trait, telemetry
+- [x] Workspace scaffold (12 crates)
+- [x] vw-core: consts, errors, secrets, configs, URIs, Iron Dome FSM, packet parsing, IPC, transport trait, telemetry
 
 ## Crypto & WireGuard
-- [ ] vw-crypto: HKDF-BLAKE3, hybrid X25519+ML-KEM-1024, Ed25519 identities, VWCP, blind RSA tokens
-- [ ] vw-wg: Noise_IKpsk2 engine, timers, cookies, reserved bytes, VirtualTunChannel, OS TUN, cascade, sanitizer, DAITA padding, boringtun interop test
+- [x] vw-crypto (39 tests): HKDF-BLAKE3, hybrid X25519+ML-KEM-1024, Ed25519 identities, VWCP, blind RSA tokens
+- [x] vw-wg (57 tests incl. 7 boringtun interop): Noise_IKpsk2 engine, timers, cookies, reserved bytes, VirtualTunChannel, OS TUN, cascade, sanitizer, DAITA padding, boringtun interop test
 
 ## Stealth
-- [ ] vw-stealth: NativeUdp, AmneziaWG, MASQUE/QUIC, TLS-WS, DAITA wrapper, anti-signature tests
+- [x] vw-stealth (34 tests): NativeUdp, AmneziaWG, MASQUE/QUIC, TLS-WS, DAITA wrapper, anti-signature tests
 
 ## Firewall & DNS
-- [ ] vw-firewall: trait, nftables + policy routing + netns, pf anchor, WFP, STUN filter
+- [x] vw-firewall (48 tests; macOS/Windows/Linux clippy clean; kernel execution untested until gauntlet): trait, nftables + policy routing + netns, pf anchor, WFP, STUN filter
 - [ ] vw-dns: vault, DoH, DoT, ODoH, Shield + CNAME uncloaking, interception
 
 ## FreeCloud & Server
-- [ ] vw-freecloud: WARP registrar, F2F invites, cloud-init/OpenTofu (Oracle, GCP, Fly), arti feature
+- [x] vw-freecloud: WARP registrar, HTTPS mark/pin client, cloud-init/OpenTofu (Oracle, GCP, Fly, Docker, SSH)
+- [ ] vw-freecloud: F2F invite redemption client, arti Tor feature
 - [ ] vw-server: voidwire-node listeners, admission, NAT, decoy, attestation, invite CLI
 
 ## Daemon, CLI, TUI
 - [ ] vw-daemon: IPC server, FSM driver, pipeline, optimizer, launchd / Windows service
 - [ ] vw-cli: up/down/status --audit/panic/exec/cloud/tui
-- [ ] vw-tui: dashboard panels + panic hotkey
+- [x] vw-tui: dashboard panels + panic hotkey (23 tests, Windows clippy clean)
 
 ## Desktop
 - [ ] apps/desktop: Tauri v2 + React + Tailwind UI, IPC bridge, map, auditor, global shortcut, daemon installer

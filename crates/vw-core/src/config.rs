@@ -268,6 +268,19 @@ pub struct NodeDescriptor {
     /// Static PSK for generic nodes (VoidWire nodes derive PQ PSKs).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub static_psk: Option<Key32>,
+    /// RFC 9474 blind-token issuer public keys (one per bandwidth tier), used
+    /// by F2F friends to prepare blinded session tokens.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub token_keys: Vec<TokenKeyInfo>,
+}
+
+/// A node's blind-token issuer public key for one tier.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TokenKeyInfo {
+    pub tier: u8,
+    pub bandwidth_bps: u64,
+    /// Base64 DER SubjectPublicKeyInfo.
+    pub spki: String,
 }
 
 impl NodeDescriptor {
@@ -576,6 +589,7 @@ impl WarpAccount {
             static_v6: Some(self.v6),
             reserved: Some(self.client_id),
             static_psk: None,
+            token_keys: Vec::new(),
         }
     }
 }

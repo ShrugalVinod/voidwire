@@ -295,6 +295,7 @@ mod tests {
             static_v6: None,
             reserved: None,
             static_psk: None,
+            token_keys: Vec::new(),
         })
         .unwrap()
     }

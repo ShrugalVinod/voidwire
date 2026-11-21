@@ -189,6 +189,27 @@ REKEY_AFTER_MESSAGES 2^60, REJECT_AFTER_MESSAGES 2^64−2^13−1, REKEY_AFTER_TI
   without linking sessions to the invite or to each other. Spent `msg` values
   are kept in RAM only until the issuing key rotates (every 30 days).
 
+### 8.1 VWCP token field and F2F redemption
+`ClientHello.token` starts with a kind byte:
+- `0x00` (or empty) — owner device; accepted only if the client's WireGuard static
+  key was pre-authorised with `--authorize`.
+- `0x01 || SessionToken(321 B)` — Chaumian session token; verified with the tier's
+  issuer key, double-spend checked, grants that tier's bandwidth.
+- `0x02 || invite_secret[32]` — first contact of a friend: valid once per invite;
+  admits the session at the invite's tier and permits exactly one redemption.
+
+After ServerAck of an invite-admitted session the client sends (inside the PQ
+session, same VWCP framing/fragmentation):
+| type | message | body |
+|---|---|---|
+| 0x06 | RedeemRequest  | `count u8 (1..=32) · count × blinded_msg[256]` |
+| 0x07 | RedeemResponse | `tier u8 · count u8 · count × blind_sig[256]` |
+| 0x08 | AttestRequest  | `nonce[32]` |
+| 0x09 | AttestResponse | `len u16 · SignedAttestation::encode()` |
+
+Issuer public keys are published in `NodeDescriptor.token_keys`. Bandwidth is
+enforced per session with a token bucket at the node.
+
 ## 9. Transports (`vw-stealth`, trait in `vw_core::transport`)
 
 | kind | wire format |
