@@ -1,0 +1,17 @@
+:root{--ink:#1f2328;--muted:#6a737d;--paper:#fbfaf7;--rule:#e6e2d9;--accent:#5b6f52}
+*{box-sizing:border-box}
+html{font-size:18px}
+body{margin:0;background:var(--paper);color:var(--ink);font:1rem/1.65 Georgia,"Iowan Old Style","Palatino Linotype",serif}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+header.site,footer.site,main{max-width:38rem;margin:0 auto;padding:0 1.25rem}
+header.site{display:flex;justify-content:space-between;align-items:baseline;padding-top:2.5rem;padding-bottom:1rem;border-bottom:1px solid var(--rule)}
+.brand{font-size:1.25rem;color:var(--ink);letter-spacing:.02em}
+nav a{margin-left:1.25rem;font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:.8rem;text-transform:uppercase;letter-spacing:.08em}
+article{padding:2rem 0;border-bottom:1px solid var(--rule)}
+h1,h2{font-weight:normal;line-height:1.25;margin:.25rem 0 1rem}
+h1{font-size:2rem}
+h2{font-size:1.5rem}
+.meta{margin:0;color:var(--muted);font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:.75rem;text-transform:uppercase;letter-spacing:.1em}
+footer.site{padding-top:1.5rem;padding-bottom:3rem;color:var(--muted);font-size:.85rem}
+@media (prefers-color-scheme:dark){:root{--ink:#e6e3dc;--muted:#9a978f;--paper:#1b1c1a;--rule:#33342f;--accent:#a3b98f}}
