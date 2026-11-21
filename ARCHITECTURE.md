@@ -219,9 +219,13 @@ change and every 30 min in the background. `--country` only filters candidates.
 
 ## 11. Firewall backends (`vw-firewall`)
 
-`trait FirewallBackend { arm(&LockdownPlan); allow_endpoints(&[Endpoint]); activate_tunnel(&TunInfo); disarm(); status() }`.
+`trait FirewallBackend { name(); arm(&LockdownPlan); update(&LockdownPlan); disarm(); status(); is_armed_in_kernel() }` — `arm` with `tunnel: None` is the boot lock (only pinned endpoints), `update` swaps in the tunnel interface / new pins atomically.
 - Linux: one atomic `nft -f` transaction for `table inet voidwire_lockdown`
-  (rules in PROMPT.md §2.2) + `ip rule pref 50` / table 51820 + `suppress_prefixlength 0`.
+  (rules in PROMPT.md §2.2) + policy routing: pref 48 DHCP→main (and LAN→main with
+  `suppress_prefixlength 0` only when `allow_lan`), pref 49 `fwmark` → main, pref 50
+  `not fwmark` → table 51820 (`default dev vw0`), pref 51 `not fwmark` → unreachable.
+  No global `suppress_prefixlength 0` rule precedes the tunnel rule, so injected
+  /1../32 routes in `main` can never capture unmarked traffic (Tunnelvision).
 - macOS: anchor `com.voidwire.lockdown`, loaded with `pfctl -a ... -f -`,
   referenced from `/etc/pf.conf` via a managed block; `pfctl -E` token kept in
   state dir. Block-by-default `block drop out quick` except lo0, utunN, and the
@@ -248,3 +252,39 @@ change and every 30 min in the background. `--country` only filters candidates.
 
 Out of scope: a compromised local OS/kernel, global passive adversaries
 correlating both ends of the circuit, browser fingerprinting above the IP layer.
+
+## 13. Binary contracts
+
+### `voidwired` (vw-daemon)
+- `voidwired run` — foreground service (launchd / Windows SCM / systemd start this).
+- `voidwired install` — must run as root/Administrator: copies itself (and on
+  Windows `wintun.dll` from the app's resources dir or next to the exe) to a
+  stable location (`/Library/PrivilegedHelperTools/com.voidwire.daemon` on macOS,
+  `%ProgramFiles%\VoidWire\` on Windows, `/usr/local/sbin/voidwired` on Linux),
+  creates the state dir (0750) and a fresh 32-byte hex IPC token (0640, group
+  `admin` on macOS / `voidwire` on Linux; Windows ACL Administrators + Users read),
+  registers and starts the service (`/Library/LaunchDaemons/com.voidwire.daemon.plist`
+  with RunAtLoad + KeepAlive; Windows service `VoidWire` auto-start, recovery =
+  restart; systemd unit `voidwired.service`). Idempotent.
+- `voidwired uninstall` — disarms the lockdown, stops and removes the service and
+  binaries, keeps nothing but an optional `--keep-config`.
+- `voidwired status` — prints whether the service is installed/running (no IPC needed).
+
+### `voidwire-node` (vw-server)
+- `voidwire-node run --state DIR [--ram-only] --name NAME --listen-udp HOST:PORT
+  --listen-quic HOST:PORT --listen-tls HOST:PORT --sni NAME [--authorize WGPUB]...
+  [--decoy-dir DIR] [--egress-iface IFACE]` — creates the identity on first start
+  inside `--state` (tmpfs when `--ram-only`), writes `DIR/node.uri`, then serves.
+- `voidwire-node uri --state DIR [--qr]` — prints the `voidwire://node/...` URI.
+- `voidwire-node invite --state DIR --bandwidth-limit 50Mbps --expires 30d` — prints
+  a `voidwire://f2f/...` invite (talks to the running node over a 0600 Unix socket
+  `DIR/control.sock` so single-use invite secrets live in the node's RAM).
+- `voidwire-node attest --state DIR` — prints the signed attestation JSON.
+
+### `voidwire` (vw-cli)
+`up [--profile auto|warp|multihop|stealth|f2f|max-anonymity] [--country CC] [--transport ...]`,
+`down [--keep-lockdown]`, `disarm`, `status [--audit] [--json]`, `panic`,
+`exec -- <cmd...>`, `optimize`, `nodes list|import <uri>|remove <name>`,
+`invite redeem <uri>`, `warp register [--accept-tos]`,
+`cloud generate --provider oracle-free|gcp-free|fly|docker|ssh [--out DIR] [--version V]`,
+`settings get|set <json>`, `tui`.

@@ -1,5 +1,6 @@
 [package]
 name = "vw-firewall"
+description = "VoidWire fail-closed firewall backends (nftables, pf, WFP), policy routing, netns and STUN filter"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -7,3 +8,15 @@ rust-version.workspace = true
 
 [dependencies]
 vw-core.workspace = true
+blake3.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_NetworkManagement_WindowsFilteringPlatform", "Win32_System_Rpc", "Win32_Security", "Win32_NetworkManagement_IpHelper", "Win32_NetworkManagement_Ndis", "Win32_Networking_WinSock"] }
+# Portable BLAKE3 on Windows so the crate type-checks without a C toolchain.
+blake3 = { workspace = true, features = ["pure"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+nix = { version = "0.32.0", features = ["sched", "ioctl", "fs"] }
