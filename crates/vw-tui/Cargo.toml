@@ -1,9 +1,20 @@
 [package]
 name = "vw-tui"
+description = "VoidWire ratatui dashboard (`voidwire tui`)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+anyhow.workspace = true
+# Must match the crossterm major used by ratatui 0.29 so event types line up.
+crossterm = { version = "0.28.1", features = ["event-stream"] }
+futures-util = { version = "0.3.34", default-features = false, features = ["std"] }
+ratatui = "0.29.0"
+tokio = { workspace = true, features = ["rt", "macros", "time", "sync"] }
+tracing.workspace = true
 vw-core.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }
