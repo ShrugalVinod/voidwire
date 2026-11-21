@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  VoidWire MSI service hook (Tauri v2 `bundle.windows.wix.fragmentPaths`).
+
+  WiX links a fragment as a unit when any element in it is referenced, so the
+  component below (listed in `componentRefs`) pulls in the custom actions and
+  their scheduling. The component's registry value records that the MSI owns
+  the service registration. Custom actions run deferred as LocalSystem
+  (Impersonate="no"), mirroring the NSIS hooks in hooks.nsh.
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Fragment>
+    <DirectoryRef Id="INSTALLDIR">
+      <Component Id="VoidWireServiceHook" Guid="7E0B3A52-5D64-4C1B-9A8E-2F4C6D1B9E07">
+        <RegistryValue Root="HKLM" Key="Software\VoidWire\Desktop" Name="ServiceInstalledByMsi" Type="integer" Value="1" KeyPath="yes"/>
+      </Component>
+    </DirectoryRef>
+
+    <CustomAction Id="VoidWireServiceInstall" Directory="INSTALLDIR"
+                  ExeCommand="&quot;[INSTALLDIR]voidwired.exe&quot; install"
+                  Execute="deferred" Impersonate="no" Return="check"/>
+    <CustomAction Id="VoidWireServiceUninstall" Directory="INSTALLDIR"
+                  ExeCommand="&quot;[INSTALLDIR]voidwired.exe&quot; uninstall"
+                  Execute="deferred" Impersonate="no" Return="ignore"/>
+
+    <InstallExecuteSequence>
+      <Custom Action="VoidWireServiceUninstall" Before="RemoveFiles">REMOVE~="ALL"</Custom>
+      <Custom Action="VoidWireServiceInstall" Before="InstallFinalize">NOT REMOVE~="ALL"</Custom>
+    </InstallExecuteSequence>
+  </Fragment>
+</Wix>

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "targets": ["msi", "nsis"],
+    "resources": {
+      "resources/wintun.dll": "wintun.dll"
+    },
+    "windows": {
+      "webviewInstallMode": { "type": "embedBootstrapper", "silent": true },
+      "nsis": {
+        "installMode": "perMachine",
+        "installerHooks": "./windows/hooks.nsh",
+        "displayLanguageSelector": false
+      },
+      "wix": {
+        "fragmentPaths": ["./windows/service-fragment.wxs"],
+        "componentRefs": ["VoidWireServiceHook"]
+      }
+    }
+  }
+}

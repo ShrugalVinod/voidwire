@@ -1,0 +1,36 @@
+{
+  "name": "voidwire-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "VoidWire desktop app (Tauri v2 + React) over the voidwired IPC protocol",
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "icons": "tauri icon assets/logo.svg -o src-tauri/icons",
+    "sidecars": "node scripts/prepare-sidecars.mjs",
+    "landmask": "python3 scripts/gen-landmask.py"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "2.12.5",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.5",
+    "@tauri-apps/cli": "2.12.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.3.0",
+    "tailwindcss": "4.3.5",
+    "typescript": "7.0.2",
+    "vite": "8.3.8"
+  }
+}
