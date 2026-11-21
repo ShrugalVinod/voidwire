@@ -1,0 +1,63 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/vw-core",
+    "crates/vw-crypto",
+    "crates/vw-wg",
+    "crates/vw-stealth",
+    "crates/vw-firewall",
+    "crates/vw-dns",
+    "crates/vw-freecloud",
+    "crates/vw-leakaudit",
+    "crates/vw-daemon",
+    "crates/vw-server",
+    "crates/vw-cli",
+    "crates/vw-tui",
+]
+exclude = ["apps/desktop/src-tauri"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/voidwire-vpn/voidwire"
+rust-version = "1.85"
+
+[workspace.dependencies]
+vw-core = { path = "crates/vw-core" }
+vw-crypto = { path = "crates/vw-crypto" }
+vw-wg = { path = "crates/vw-wg" }
+vw-stealth = { path = "crates/vw-stealth" }
+vw-firewall = { path = "crates/vw-firewall" }
+vw-dns = { path = "crates/vw-dns" }
+vw-freecloud = { path = "crates/vw-freecloud" }
+vw-leakaudit = { path = "crates/vw-leakaudit" }
+vw-daemon = { path = "crates/vw-daemon" }
+vw-server = { path = "crates/vw-server" }
+vw-tui = { path = "crates/vw-tui" }
+
+anyhow = "1"
+async-trait = "0.1"
+base64 = "0.22"
+blake3 = "1"
+bytes = "1"
+clap = { version = "4", features = ["derive", "env"] }
+hex = "0.4"
+rand = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+subtle = "2"
+thiserror = "2"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+zeroize = { version = "1", features = ["derive"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
+
+[profile.dev.package."*"]
+opt-level = 2
