@@ -1,9 +1,29 @@
 [package]
 name = "vw-leakaudit"
+description = "VoidWire canary self-verifier and Leak Gauntlet"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 
+[features]
+default = []
+# Root-only netns gauntlet (Linux CI); see CLAUDE.md.
+privileged = []
+
 [dependencies]
 vw-core.workspace = true
+vw-crypto.workspace = true
+async-trait.workspace = true
+blake3.workspace = true
+hex.workspace = true
+rand.workspace = true
+tokio = { workspace = true, features = ["time", "macros", "rt"] }
+tracing.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }
+
+# Portable SIMD build on Windows (no C toolchain needed for cross type-checks).
+[target.'cfg(windows)'.dependencies]
+blake3 = { workspace = true, features = ["pure"] }
