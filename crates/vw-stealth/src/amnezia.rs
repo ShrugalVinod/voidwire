@@ -306,6 +306,8 @@ mod tests {
         // With S1 < 4 the first bytes mix padding and H; the prefix is redrawn.
         let mut p = AmneziaParams::random();
         p.s1 = 1;
+        // Fixed S2 so 148 + S1 never equals 92 + S2 (that would be invalid).
+        p.s2 = 20;
         // H1 = bytes 00 00 00 07: a 1-byte prefix in 1..=4 would read as a
         // standard type field, so ~1.5% of draws must be rejected.
         p.h1 = 0x0700_0000;
