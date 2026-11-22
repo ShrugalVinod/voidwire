@@ -182,6 +182,7 @@ impl MiniNode {
             reserved: None,
             static_psk: None,
             token_keys: Vec::new(),
+            client_private: None,
         }
     }
 

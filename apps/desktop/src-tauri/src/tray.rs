@@ -89,6 +89,7 @@ pub fn build(app: &App) -> tauri::Result<()> {
                     profile: Profile::Auto,
                     country: None,
                     transport: None,
+                    gateway: None,
                 },
                 "Connect requested (Auto)",
             ),

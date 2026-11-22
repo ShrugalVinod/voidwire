@@ -284,6 +284,7 @@ pub fn build_descriptor(st: &NodeState, adv: &Advertise) -> Result<NodeDescripto
         reserved: None,
         static_psk: None,
         token_keys: st.issuers.token_key_infos()?,
+        client_private: None,
     };
     d.validate()?;
     Ok(d)

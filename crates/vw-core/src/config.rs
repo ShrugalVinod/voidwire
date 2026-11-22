@@ -272,6 +272,11 @@ pub struct NodeDescriptor {
     /// by F2F friends to prepare blinded session tokens.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub token_keys: Vec<TokenKeyInfo>,
+    /// Client private key bound to this gateway (imported WireGuard configs:
+    /// third-party providers issue one key per config). `None` = use the
+    /// device's own VoidWire key.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub client_private: Option<Key32>,
 }
 
 /// A node's blind-token issuer public key for one tier.
@@ -298,6 +303,11 @@ impl NodeDescriptor {
         }
         if let Some(a) = &self.amnezia {
             a.validate()?;
+        }
+        if self.kind == NodeKind::Generic && self.client_private.is_none() {
+            return Err(VwError::Config(
+                "imported WireGuard gateway is missing its PrivateKey".into(),
+            ));
         }
         if self.kind == NodeKind::Voidwire && self.identity_key.is_none() {
             return Err(VwError::Config(
@@ -590,6 +600,7 @@ impl WarpAccount {
             reserved: Some(self.client_id),
             static_psk: None,
             token_keys: Vec::new(),
+            client_private: None,
         }
     }
 }

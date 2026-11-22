@@ -31,6 +31,7 @@ pub async fn execute(cli: Cli, out: &mut Out) -> CliResult<i32> {
                 a.profile.map(Into::into),
                 a.country,
                 a.transport.map(Into::into),
+                a.gateway,
                 a.timeout,
             )
             .await
@@ -43,6 +44,11 @@ pub async fn execute(cli: Cli, out: &mut Out) -> CliResult<i32> {
         Command::Optimize => optimize(out).await,
         Command::Nodes(NodesCommand::List) => nodes_list(out).await,
         Command::Nodes(NodesCommand::Import { uri }) => import(out, &uri).await,
+        Command::Nodes(NodesCommand::ImportConf {
+            file,
+            name,
+            country,
+        }) => import_conf(out, &file, &name, country).await,
         Command::Nodes(NodesCommand::Remove { name }) => remove(out, &name).await,
         Command::Invite(InviteCommand::Redeem { uri }) => redeem(out, &uri).await,
         Command::Warp(WarpCommand::Register { accept_tos }) => warp_register(out, accept_tos).await,
@@ -300,6 +306,31 @@ async fn import(out: &mut Out, uri: &str) -> CliResult<i32> {
     })
     .await?;
     ok_message(out, &format!("imported {what}"), json!({}));
+    Ok(0)
+}
+
+async fn import_conf(
+    out: &mut Out,
+    file: &std::path::Path,
+    name: &str,
+    country: Option<String>,
+) -> CliResult<i32> {
+    let config = std::fs::read_to_string(file)
+        .map_err(|e| CliError::usage(format!("cannot read {}: {e}", file.display())))?;
+    // Validate locally first for a precise error message.
+    vw_core::wgconf::parse(&config, name, country.as_deref())
+        .map_err(|e| CliError::usage(format!("invalid WireGuard config: {e}")))?;
+    daemon::call_ok(&Request::ImportWireGuard {
+        name: name.to_string(),
+        config,
+        country,
+    })
+    .await?;
+    ok_message(
+        out,
+        &format!("imported gateway '{name}' (use: voidwire up --gateway \"{name}\")"),
+        json!({ "name": name }),
+    );
     Ok(0)
 }
 

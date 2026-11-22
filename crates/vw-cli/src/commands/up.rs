@@ -109,6 +109,7 @@ pub async fn run(
     profile: Option<Profile>,
     country: Option<String>,
     transport: Option<TransportKind>,
+    gateway: Option<String>,
     timeout_secs: u64,
 ) -> CliResult<i32> {
     let theme = out.theme;
@@ -148,6 +149,9 @@ pub async fn run(
         if let Some(t) = transport {
             what.push_str(&format!(", transport {}", t.label()));
         }
+        if let Some(g) = &gateway {
+            what.push_str(&format!(", gateway {g}"));
+        }
         out.line(&theme.bold(&what));
     }
 
@@ -155,6 +159,7 @@ pub async fn run(
         profile,
         country: country.clone(),
         transport,
+        gateway: gateway.clone(),
     };
     let mut up_task = tokio::spawn(async move { daemon::call(&mut up_client, &req).await });
 
@@ -218,7 +223,7 @@ pub async fn run(
                     }
                     Ok(other) => {
                         reader.abort();
-                        return Err(daemon::unexpected(&Request::Up { profile, country, transport }, &other));
+                        return Err(daemon::unexpected(&Request::Up { profile, country, transport, gateway }, &other));
                     }
                     Err(e) if e.code == ExitCode::Rejected && s.state == DomeState::FailsafeLockdown => {
                         break UpOutcome::Lockdown {

@@ -51,6 +51,7 @@ pub fn run() {
             commands::set_settings,
             commands::list_nodes,
             commands::import_node,
+            commands::import_wireguard,
             commands::remove_node,
             commands::redeem_invite,
             commands::register_warp,

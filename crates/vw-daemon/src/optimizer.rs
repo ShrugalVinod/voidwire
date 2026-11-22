@@ -176,7 +176,12 @@ pub struct Keys {
 pub fn peer_for(node: &NodeDescriptor, keys: &Keys) -> Peer {
     let (key, reserved) = match (&node.kind, &keys.warp) {
         (NodeKind::Warp, Some(w)) => (w.private_key.clone(), w.client_id),
-        _ => (keys.client.clone(), node.reserved.unwrap_or([0; 3])),
+        _ => (
+            node.client_private
+                .clone()
+                .unwrap_or_else(|| keys.client.clone()),
+            node.reserved.unwrap_or([0; 3]),
+        ),
     };
     Peer::new_initiator(key, node.wg_public_key.0, node.static_psk.clone(), reserved)
 }
@@ -671,6 +676,7 @@ mod tests {
             reserved: None,
             static_psk: None,
             token_keys: vec![],
+            client_private: None,
         }
     }
 

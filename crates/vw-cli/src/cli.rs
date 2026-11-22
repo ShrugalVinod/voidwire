@@ -101,6 +101,11 @@ pub struct UpArgs {
     /// Force a transport instead of letting the optimizer choose.
     #[arg(long, value_enum)]
     pub transport: Option<TransportArg>,
+    /// Exit through this gateway (name from `voidwire nodes list`, or
+    /// "Cloudflare WARP"). Direct by default; add `--profile multihop` to chain
+    /// through WARP first.
+    #[arg(long, value_name = "NAME")]
+    pub gateway: Option<String>,
     /// Seconds to wait for the tunnel to become active.
     #[arg(long, value_name = "SECS", default_value_t = DEFAULT_UP_TIMEOUT_SECS,
           value_parser = clap::value_parser!(u64).range(1..=3600))]
@@ -113,6 +118,17 @@ pub enum NodesCommand {
     List,
     /// Import a `voidwire://node/...` (or `voidwire://f2f/...`) URI.
     Import { uri: String },
+    /// Import a WireGuard / AmneziaWG .conf file from any provider (Proton VPN, Mullvad, ...).
+    ImportConf {
+        /// Path to the .conf file.
+        file: std::path::PathBuf,
+        /// Gateway name shown in VoidWire (e.g. "Proton US").
+        #[arg(long)]
+        name: String,
+        /// Country of the server (ISO 3166-1 alpha-2, e.g. US).
+        #[arg(long, value_name = "CC", value_parser = parse_country)]
+        country: Option<String>,
+    },
     /// Remove a node by name.
     Remove { name: String },
 }

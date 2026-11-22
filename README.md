@@ -49,6 +49,23 @@ VoidWire service and the Wintun driver.
 WARP is fast and has no data cap, but Cloudflare can see your real IP and it is
 not post-quantum. For real privacy, add your own exit node:
 
+## Use another VPN provider's servers (choose your country)
+
+VoidWire can use any provider that hands out **WireGuard** configs: Proton VPN
+(including the free plan), Mullvad, IVPN, Surfshark, Windscribe and others.
+Providers with closed protocols (Hotspot Shield, X-VPN) cannot be used.
+
+1. Download a WireGuard `.conf` from your provider for the country you want.
+2. VoidWire → **Nodes → Import WireGuard config**: choose the file, give it a
+   name (e.g. `Proton US`) and the country code.
+3. Pick it in the gateway menu next to **Connect**. Tick **via WARP** to chain
+   WARP → provider, so the provider never sees your real IP.
+
+CLI: `voidwire nodes import-conf proton-us.conf --name "Proton US" --country US`,
+then `voidwire up --gateway "Proton US"` (add `--profile multihop` to chain via WARP).
+Shell hooks in configs (`PostUp`, etc.) are refused, and the config's DNS line is
+ignored: DNS always goes through VoidWire's encrypted vault.
+
 ## Your own free exit node (Oracle Always Free)
 
 ```bash

@@ -254,7 +254,7 @@ export type Request =
   | { type: "Status" }
   | {
       type: "Up";
-      data: { profile: Profile; country: string | null; transport: TransportKind | null };
+      data: { profile: Profile; country: string | null; transport: TransportKind | null; gateway?: string | null };
     }
   | { type: "Down"; data: { keep_lockdown: boolean } }
   | { type: "Disarm" }
@@ -267,6 +267,7 @@ export type Request =
   | { type: "ImportNode"; data: { uri: string } }
   | { type: "RemoveNode"; data: { name: string } }
   | { type: "RedeemInvite"; data: { uri: string } }
+  | { type: "ImportWireGuard"; data: { name: string; config: string; country?: string | null } }
   | { type: "RegisterWarp" }
   | { type: "Telemetry" }
   | { type: "Subscribe" }

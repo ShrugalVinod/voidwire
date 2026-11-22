@@ -239,7 +239,8 @@ fn commands_send_the_right_requests() {
         Request::Up {
             profile: Profile::Auto,
             country: None,
-            transport: None
+            transport: None,
+            gateway: None
         }
     );
     assert_eq!(

@@ -29,7 +29,11 @@ pub async fn up(
     profile: Profile,
     country: Option<String>,
     transport: Option<TransportKind>,
+    gateway: Option<String>,
 ) -> Result<Response, String> {
+    let gateway = gateway
+        .map(|g| g.trim().to_string())
+        .filter(|g| !g.is_empty());
     let country = country
         .map(|c| c.trim().to_ascii_uppercase())
         .filter(|c| !c.is_empty());
@@ -42,6 +46,7 @@ pub async fn up(
         profile,
         country,
         transport,
+        gateway,
     })
     .await
 }
@@ -108,6 +113,25 @@ fn clean_uri(uri: &str, prefix: &str) -> Result<String, String> {
         return Err(format!("expected a URI starting with {prefix}"));
     }
     Ok(uri.to_string())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub async fn import_wireguard(
+    name: String,
+    config: String,
+    country: Option<String>,
+) -> Result<Response, String> {
+    let country = country
+        .map(|c| c.trim().to_string())
+        .filter(|c| !c.is_empty());
+    // Validate locally first for a precise error before bothering the daemon.
+    vw_core::wgconf::parse(&config, &name, country.as_deref()).map_err(|e| e.to_string())?;
+    call(Request::ImportWireGuard {
+        name: name.trim().to_string(),
+        config,
+        country,
+    })
+    .await
 }
 
 #[tauri::command(rename_all = "snake_case")]

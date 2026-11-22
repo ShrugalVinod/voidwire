@@ -39,8 +39,8 @@ export function errorText(e: unknown): string {
 
 export const api = {
   status: () => invoke<StatusReport>("status"),
-  up: (profile: Profile, country: string | null, transport: TransportKind | null) =>
-    invoke<Response>("up", { profile, country, transport }),
+  up: (profile: Profile, country: string | null, transport: TransportKind | null, gateway: string | null) =>
+    invoke<Response>("up", { profile, country, transport, gateway }),
   down: (keepLockdown: boolean) => invoke<Response>("down", { keep_lockdown: keepLockdown }),
   disarm: () => invoke<Response>("disarm"),
   panic: () => invoke<null>("panic"),
@@ -50,6 +50,8 @@ export const api = {
   setSettings: (settings: Settings) => invoke<Response>("set_settings", { settings }),
   listNodes: () => invoke<NodeSummary[]>("list_nodes"),
   importNode: (uri: string) => invoke<Response>("import_node", { uri }),
+  importWireGuard: (name: string, config: string, country: string | null) =>
+    invoke<Response>("import_wireguard", { name, config, country }),
   removeNode: (name: string) => invoke<Response>("remove_node", { name }),
   redeemInvite: (uri: string) => invoke<Response>("redeem_invite", { uri }),
   registerWarp: () => invoke<Response>("register_warp"),

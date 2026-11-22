@@ -13,7 +13,7 @@ async fn panic_fires_fault_and_keeps_lockdown() {
     let p = TestPlatform::new(net.clone());
     let c = controller(&p, &[node]).await;
     vw_daemon::controller::install_panic_hook(&c);
-    c.up(Profile::Auto, None, None).await.unwrap();
+    c.up(Profile::Auto, None, None, None).await.unwrap();
     assert!(c.gate().is_open());
     let r = std::thread::spawn(|| panic!("simulated daemon bug")).join();
     assert!(r.is_err());

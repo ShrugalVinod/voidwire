@@ -54,6 +54,9 @@ pub enum Request {
         country: Option<String>,
         #[serde(default)]
         transport: Option<TransportKind>,
+        /// Exit through exactly this gateway (node name); `None` = fastest.
+        #[serde(default)]
+        gateway: Option<String>,
     },
     Down {
         keep_lockdown: bool,
@@ -77,6 +80,13 @@ pub enum Request {
     },
     RedeemInvite {
         uri: String,
+    },
+    /// Import a standard WireGuard / AmneziaWG `.conf` as a gateway.
+    ImportWireGuard {
+        name: String,
+        config: String,
+        #[serde(default)]
+        country: Option<String>,
     },
     RegisterWarp,
     Telemetry,

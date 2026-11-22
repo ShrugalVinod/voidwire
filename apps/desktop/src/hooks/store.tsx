@@ -195,7 +195,7 @@ export interface Actions {
   refreshSettings: () => Promise<void>;
   refreshNodes: () => Promise<void>;
   checkPresence: () => Promise<void>;
-  connect: (profile: Profile, country: string | null, transport: TransportKind | null) => Promise<void>;
+  connect: (profile: Profile, country: string | null, transport: TransportKind | null, gateway?: string | null) => Promise<void>;
   disconnect: (keepLockdown: boolean) => Promise<void>;
   disarm: () => Promise<void>;
   panic: () => Promise<void>;
@@ -204,6 +204,7 @@ export interface Actions {
   saveSettings: (s: Settings) => Promise<boolean>;
   setLiveInspector: (on: boolean) => Promise<void>;
   importUri: (uri: string) => Promise<boolean>;
+  importWireGuard: (name: string, config: string, country: string | null) => Promise<boolean>;
   removeNode: (name: string) => Promise<void>;
   registerWarp: () => Promise<void>;
   installService: () => Promise<void>;
@@ -286,8 +287,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       checkPresence,
       toast,
       dismiss: (id) => dispatch({ t: "dismiss", id }),
-      connect: async (profile, country, transport) => {
-        await run("connect", () => api.up(profile, country, transport));
+      connect: async (profile, country, transport, gateway = null) => {
+        await run("connect", () => api.up(profile, country, transport, gateway));
         await refreshStatus();
       },
       disconnect: async (keep) => {
@@ -332,6 +333,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (!on) dispatch({ t: "dnsClear" });
         const r = await run("inspector", () => api.setSettings({ ...cur, live_inspector: on }));
         if (r !== undefined) await refreshSettings();
+      },
+      importWireGuard: async (name, config, country) => {
+        const r = await run("importConf", () => api.importWireGuard(name, config, country));
+        if (r === undefined) return false;
+        toast("info", `Imported gateway “${name}”. Pick it in the gateway menu next to Connect.`);
+        await refreshNodes();
+        return true;
       },
       importUri: async (raw) => {
         const uri = raw.trim();

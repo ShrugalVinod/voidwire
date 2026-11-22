@@ -153,6 +153,7 @@ async fn handle(
             Request::ImportNode { .. }
             | Request::RemoveNode { .. }
             | Request::RedeemInvite { .. }
+            | Request::ImportWireGuard { .. }
             | Request::RegisterWarp => Response::Ok,
             Request::Telemetry => Response::Telemetry(Default::default()),
             Request::ExecPrepare => Response::Exec(ExecTicket {
@@ -384,6 +385,7 @@ async fn control_commands_round_trip() {
         reserved: None,
         static_psk: None,
         token_keys: Vec::new(),
+        client_private: None,
     };
     let uri = vw_core::uri::encode_node(&node).unwrap();
     let (r, o, _) = run(&["nodes", "import", &uri]).await;

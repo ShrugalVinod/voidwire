@@ -6,6 +6,9 @@ import { ConfirmButton, Empty, Panel, PqBadge, Spinner } from "./ui";
 export function NodesPanel() {
   const { s, act } = useStore();
   const [uri, setUri] = useState("");
+  const [confName, setConfName] = useState("");
+  const [confCountry, setConfCountry] = useState("");
+  const [conf, setConf] = useState("");
   const nodes = s.nodes;
   const hasWarp = nodes?.some((n) => n.kind === "warp") ?? false;
   const trimmed = uri.trim();
@@ -71,6 +74,61 @@ export function NodesPanel() {
           <button type="button" className="btn btn-cyan w-full" disabled={!!s.busy.warp} onClick={() => void act.registerWarp()}>
             {s.busy.warp && <Spinner />} {hasWarp ? "Re-register WARP device" : "Get free WARP"}
           </button>
+        </Panel>
+        <Panel title="Import WireGuard config">
+          <form
+            className="grid gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void act.importWireGuard(confName.trim(), conf, confCountry.trim() || null).then((ok) => {
+                if (ok) {
+                  setConf("");
+                  setConfName("");
+                  setConfCountry("");
+                }
+              });
+            }}
+          >
+            <p className="text-[11px] text-mute">
+              Any provider that gives WireGuard configs (Proton VPN, Mullvad, IVPN, Surfshark…). Your DNS still goes through
+              VoidWire’s encrypted vault.
+            </p>
+            <div className="grid grid-cols-[1fr_64px] gap-2">
+              <input className="field" placeholder="Name, e.g. Proton US" value={confName} onChange={(e) => setConfName(e.target.value)} aria-label="Gateway name" />
+              <input className="field uppercase" placeholder="US" maxLength={2} value={confCountry} onChange={(e) => setConfCountry(e.target.value)} aria-label="Country code" />
+            </div>
+            <textarea
+              className="field !text-[11px]"
+              rows={4}
+              spellCheck={false}
+              placeholder={"[Interface]\nPrivateKey = …\n[Peer]\n…"}
+              value={conf}
+              onChange={(e) => setConf(e.target.value)}
+              aria-label="WireGuard config"
+            />
+            <div className="flex items-center justify-between gap-2">
+              <label className="btn btn-sm cursor-pointer">
+                Choose .conf file
+                <input
+                  type="file"
+                  accept=".conf,text/plain"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    void f.text().then((txt) => {
+                      setConf(txt);
+                      if (!confName) setConfName(f.name.replace(/\.conf$/i, ""));
+                    });
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              <button type="submit" className="btn btn-sm btn-cyan" disabled={!confName.trim() || !conf.includes("[Interface]") || !!s.busy.importConf}>
+                {s.busy.importConf && <Spinner />} Import gateway
+              </button>
+            </div>
+          </form>
         </Panel>
         <Panel title="Import">
           <form

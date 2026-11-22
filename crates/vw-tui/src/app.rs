@@ -103,6 +103,7 @@ impl Command {
                 profile: Profile::Auto,
                 country: None,
                 transport: None,
+                gateway: None,
             },
             Command::Disconnect => Request::Down {
                 keep_lockdown: true,

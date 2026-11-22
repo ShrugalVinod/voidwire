@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useStore } from "../hooks/store";
 import type { Profile } from "../ipc/types";
 import { ACTIVE_STATES, PROFILE_META, STATE_META, TONE_COLOR, formatDuration } from "../lib/format";
@@ -15,6 +16,42 @@ export function Header({ profile, country }: { profile: Profile; country: string
   // Panic rotates a live identity: only meaningful while connected or locked down.
   const panicReady = state === "TunnelActive" || state === "KeyRotating" || lockdown;
   const shortcut = s.appInfo?.panic_shortcut ?? "Ctrl+Shift+X";
+  // Gateway choice: "" = fastest available. Remembered per device only.
+  const [gateway, setGateway] = useState<string>(() => {
+    try {
+      return localStorage.getItem("vw.gateway") ?? "";
+    } catch {
+      return "";
+    }
+  });
+  const [chain, setChain] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("vw.chain") === "1";
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem("vw.gateway", gateway);
+      localStorage.setItem("vw.chain", chain ? "1" : "0");
+    } catch {
+      // Storage unavailable: the choice just isn't remembered.
+    }
+  }, [gateway, chain]);
+  const gateways = s.nodes ?? [];
+  const chosen = gateways.find((n) => n.name === gateway);
+  const chainable = !!chosen && chosen.kind !== "warp" && gateways.some((n) => n.kind === "warp");
+  useEffect(() => {
+    if (gateway && s.nodes && !s.nodes.some((n) => n.name === gateway)) setGateway("");
+  }, [gateway, s.nodes]);
+  const connectNow = () =>
+    void act.connect(
+      gateway && chain && chainable ? "multihop" : gateway ? "auto" : profile,
+      gateway ? null : country || null,
+      null,
+      gateway || null,
+    );
   const anim = meta && meta.tone !== "idle";
 
   return (
@@ -73,7 +110,7 @@ export function Header({ profile, country }: { profile: Profile; country: string
                 type="button"
                 className="btn btn-cyan"
                 disabled={!!s.busy.connect}
-                onClick={() => void act.connect(profile, country || null, null)}
+                onClick={connectNow}
               >
                 {s.busy.connect && <Spinner />} Retry tunnel
               </button>
@@ -108,14 +145,37 @@ export function Header({ profile, country }: { profile: Profile; country: string
               </button>
             </>
           ) : (
-            <button
-              type="button"
-              className="btn btn-cyan !h-9 !px-5"
-              disabled={!!s.busy.connect || state === "Disarming"}
-              onClick={() => void act.connect(profile, country || null, null)}
-            >
-              {s.busy.connect && <Spinner />} Connect · {PROFILE_META[profile].title}
-            </button>
+            <>
+              <select
+                className="field !h-9 !w-auto !py-0 text-[12px]"
+                value={gateway}
+                onChange={(e) => setGateway(e.target.value)}
+                aria-label="Gateway"
+                title="Exit gateway: where websites will think you are"
+              >
+                <option value="">Fastest (auto)</option>
+                {gateways.map((n) => (
+                  <option key={n.name} value={n.name}>
+                    {n.name}
+                    {n.country ? ` · ${n.country}` : ""}
+                  </option>
+                ))}
+              </select>
+              {chainable && (
+                <label className="flex items-center gap-1.5 text-[11px] text-mute" title="Enter through Cloudflare WARP first, so the gateway never sees your real IP">
+                  <input type="checkbox" checked={chain} onChange={(e) => setChain(e.target.checked)} />
+                  via WARP
+                </label>
+              )}
+              <button
+                type="button"
+                className="btn btn-cyan !h-9 !px-5"
+                disabled={!!s.busy.connect || state === "Disarming"}
+                onClick={connectNow}
+              >
+                {s.busy.connect && <Spinner />} Connect · {gateway ? (chain && chainable ? `WARP → ${gateway}` : gateway) : PROFILE_META[profile].title}
+              </button>
+            </>
           )}
           <button
             type="button"

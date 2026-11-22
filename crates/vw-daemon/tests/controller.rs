@@ -23,7 +23,7 @@ async fn full_up_single_hop_pq_canary_and_traffic() {
     let c = controller(&p, std::slice::from_ref(&node)).await;
     assert_eq!(c.state(), S::Disarmed);
 
-    c.up(Profile::Auto, None, None).await.expect("up");
+    c.up(Profile::Auto, None, None, None).await.expect("up");
     assert_eq!(c.state(), S::TunnelActive);
     assert_eq!(
         events(&c),
@@ -106,7 +106,7 @@ async fn two_hop_cascade_with_pq_on_both_hops() {
     let b = net.add_node("beta", 11);
     let p = TestPlatform::new(net.clone());
     let c = controller(&p, &[a.clone(), b.clone()]).await;
-    if let Err(e) = c.up(Profile::Multihop, None, None).await {
+    if let Err(e) = c.up(Profile::Multihop, None, None, None).await {
         panic!("up failed: {e}; history {:?}", c.history());
     }
     assert_eq!(c.state(), S::TunnelActive);
@@ -139,7 +139,7 @@ async fn canary_failure_keeps_lockdown_and_never_allows_traffic() {
     p.leak.store(true, Ordering::SeqCst);
     let c = controller(&p, &[node]).await;
     let mut rx = c.events.subscribe();
-    assert!(c.up(Profile::Auto, None, None).await.is_err());
+    assert!(c.up(Profile::Auto, None, None, None).await.is_err());
     assert_eq!(c.state(), S::FailsafeLockdown);
     assert!(p.armed());
     let h = c.history();
@@ -171,7 +171,7 @@ async fn unreachable_gateway_is_a_handshake_failure_under_lockdown() {
     node.kill();
     let p = TestPlatform::new(net.clone());
     let c = controller(&p, &[node]).await;
-    assert!(c.up(Profile::Auto, None, None).await.is_err());
+    assert!(c.up(Profile::Auto, None, None, None).await.is_err());
     assert_eq!(c.state(), S::FailsafeLockdown);
     assert_eq!(events(&c), vec![E::Arm, E::LockEngaged, E::HandshakeFailed]);
     assert!(p.armed());
@@ -184,7 +184,7 @@ async fn transport_loss_is_link_lost_and_stays_locked() {
     let node = net.add_node("alpha", 10);
     let p = TestPlatform::new(net.clone());
     let c = controller(&p, std::slice::from_ref(&node)).await;
-    c.up(Profile::Auto, None, None).await.unwrap();
+    c.up(Profile::Auto, None, None, None).await.unwrap();
     node.kill();
     let mut ok = false;
     for _ in 0..100 {
@@ -228,7 +228,7 @@ async fn exec_requires_active_tunnel_and_is_system_wide_off_linux() {
     let p = TestPlatform::new(net.clone());
     let c = controller(&p, &[node]).await;
     assert!(c.exec_prepare().await.is_err());
-    c.up(Profile::Auto, None, None).await.unwrap();
+    c.up(Profile::Auto, None, None, None).await.unwrap();
     let t = c.exec_prepare().await.unwrap();
     assert!(t.netns.is_none());
     assert!(t.isolation.contains("system-wide"));

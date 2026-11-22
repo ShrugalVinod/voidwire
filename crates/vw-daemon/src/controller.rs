@@ -60,6 +60,15 @@ struct UpParams {
     profile: Profile,
     country: Option<[u8; 2]>,
     transport: Option<TransportKind>,
+    /// BLAKE3 of the chosen gateway's name (keeps the struct `Copy`).
+    gateway: Option<[u8; 32]>,
+}
+
+/// Gateway name that selects Cloudflare WARP itself.
+pub const WARP_GATEWAY: &str = "Cloudflare WARP";
+
+fn gateway_id(name: &str) -> [u8; 32] {
+    *blake3::hash(name.as_bytes()).as_bytes()
 }
 
 impl UpParams {
@@ -273,7 +282,7 @@ impl Controller {
             let profile = self.settings().await.default_profile;
             let me = self.clone();
             tokio::spawn(async move {
-                if let Err(e) = me.up(profile, None, None).await {
+                if let Err(e) = me.up(profile, None, None, None).await {
                     tracing::warn!(error = %e, "automatic reconnect after boot lock failed");
                 }
             });
@@ -365,7 +374,27 @@ impl Controller {
         profile: Profile,
         country: Option<String>,
         transport: Option<TransportKind>,
+        gateway: Option<String>,
     ) -> Result<()> {
+        let gateway = match gateway.as_deref().map(str::trim).filter(|g| !g.is_empty()) {
+            Some(g) => {
+                let known = g == WARP_GATEWAY
+                    || self
+                        .store
+                        .lock()
+                        .await
+                        .data
+                        .client
+                        .nodes
+                        .iter()
+                        .any(|n| n.name == g);
+                if !known {
+                    return Err(VwError::Config(format!("no gateway named '{g}'")));
+                }
+                Some(gateway_id(g))
+            }
+            None => None,
+        };
         let country = match country {
             Some(c) if c.len() == 2 && c.is_ascii() => {
                 let b = c.to_ascii_uppercase().into_bytes();
@@ -382,6 +411,7 @@ impl Controller {
             profile,
             country,
             transport,
+            gateway,
         };
         lock(&self.info).desired = Some(params);
         let token = self.new_cancel();
@@ -606,7 +636,11 @@ impl Controller {
             .await;
         let fp = id.fingerprint(&salt);
         lock(&self.info).network_fp = Some(fp.clone());
-        let cached = if settings.auto_optimize && keep_tunnel.is_none() && p.country.is_none() {
+        let cached = if settings.auto_optimize
+            && keep_tunnel.is_none()
+            && p.country.is_none()
+            && p.gateway.is_none()
+        {
             self.store
                 .lock()
                 .await
@@ -642,6 +676,34 @@ impl Controller {
             &results,
             &verdict,
         );
+        let ranked = match p.gateway {
+            Some(g) => {
+                // Exactly the chosen exit. Direct (fastest) unless the user
+                // asked to chain through WARP (Multihop) or more.
+                let mut r: Vec<_> = ranked
+                    .into_iter()
+                    .filter(|path| {
+                        let exit = &path.exit().node;
+                        let name = if exit.kind == NodeKind::Warp {
+                            WARP_GATEWAY
+                        } else {
+                            exit.name.as_str()
+                        };
+                        gateway_id(name) == g
+                    })
+                    .collect();
+                if p.profile == Profile::Auto {
+                    r.retain(|path| path.hops.len() == 1);
+                }
+                if r.is_empty() {
+                    return Err(VwError::Config(
+                        "the chosen gateway did not answer (check the config or try another gateway)".into(),
+                    ));
+                }
+                r
+            }
+            None => ranked,
+        };
         let best = optimizer::best(&ranked, p.profile)?.clone();
         let decision = optimizer::decision_for(&best, daita, verdict, results);
         tracing::info!(
@@ -958,6 +1020,7 @@ impl Controller {
                     profile: Profile::Auto,
                     country: None,
                     transport: None,
+                    gateway: None,
                 });
                 return tokio::select! {
                     r = self.after_handshaking(p) => r,
@@ -1210,6 +1273,7 @@ impl Controller {
                 profile: self.settings().await.default_profile,
                 country: None,
                 transport: None,
+                gateway: None,
             },
         };
         let active = self.state() == DomeState::TunnelActive;
@@ -1387,6 +1451,24 @@ impl Controller {
             ));
         }
         let n = decode_node(uri)?;
+        let mut s = self.store.lock().await;
+        s.upsert_node(n)?;
+        s.save()
+    }
+
+    /// Import a WireGuard / AmneziaWG `.conf` from any provider as a gateway.
+    pub async fn import_wireguard(
+        &self,
+        name: &str,
+        config: &str,
+        country: Option<&str>,
+    ) -> Result<()> {
+        if name.trim() == WARP_GATEWAY {
+            return Err(VwError::Config(
+                "that name is reserved for Cloudflare WARP".into(),
+            ));
+        }
+        let n = vw_core::wgconf::parse(config, name, country)?;
         let mut s = self.store.lock().await;
         s.upsert_node(n)?;
         s.save()

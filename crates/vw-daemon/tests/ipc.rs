@@ -86,6 +86,7 @@ async fn requests_and_event_stream() {
         profile: Profile::Auto,
         country: None,
         transport: None,
+        gateway: None,
     };
     assert_eq!(cl.request(&up).await.unwrap(), Response::Ok);
     let mut states = Vec::new();

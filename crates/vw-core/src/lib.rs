@@ -19,5 +19,6 @@ pub mod state;
 pub mod telemetry;
 pub mod transport;
 pub mod uri;
+pub mod wgconf;
 
 pub use error::{Result, VwError};

@@ -37,6 +37,7 @@ pub fn request_name(req: &Request) -> &'static str {
         Request::ImportNode { .. } => "ImportNode",
         Request::RemoveNode { .. } => "RemoveNode",
         Request::RedeemInvite { .. } => "RedeemInvite",
+        Request::ImportWireGuard { .. } => "ImportWireGuard",
         Request::RegisterWarp => "RegisterWarp",
         Request::Telemetry => "Telemetry",
         Request::Subscribe => "Subscribe",

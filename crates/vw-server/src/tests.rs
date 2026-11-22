@@ -365,6 +365,7 @@ fn invite_redeem_session_tokens_and_double_spend() {
             reserved: None,
             static_psk: None,
             token_keys: w.core.issuers().token_key_infos().unwrap(),
+            client_private: None,
         };
         vw_core::uri::encode_node(&d).unwrap()
     };
