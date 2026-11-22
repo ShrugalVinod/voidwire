@@ -12,6 +12,8 @@ export function Header({ profile, country }: { profile: Profile; country: string
   const color = meta ? TONE_COLOR[meta.tone] : "#5a6577";
   const active = state ? ACTIVE_STATES.includes(state) : false;
   const lockdown = state === "FailsafeLockdown";
+  // Panic rotates a live identity: only meaningful while connected or locked down.
+  const panicReady = state === "TunnelActive" || state === "KeyRotating" || lockdown;
   const shortcut = s.appInfo?.panic_shortcut ?? "Ctrl+Shift+X";
   const anim = meta && meta.tone !== "idle";
 
@@ -118,9 +120,13 @@ export function Header({ profile, country }: { profile: Profile; country: string
           <button
             type="button"
             className="btn btn-crimson !h-9"
-            disabled={!!s.busy.panic}
+            disabled={!!s.busy.panic || !panicReady}
             onClick={() => void act.panic()}
-            title={`Rotate all keys, flush DNS and switch exit; firewall stays locked (${shortcut})`}
+            title={
+              panicReady
+                ? `Rotate all keys, flush DNS and switch exit; firewall stays locked (${shortcut})`
+                : "Panic rotates your identity while connected. Press Connect first."
+            }
           >
             {s.busy.panic ? <Spinner /> : <PanicIcon />}
             Panic

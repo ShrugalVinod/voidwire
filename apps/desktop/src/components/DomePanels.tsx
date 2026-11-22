@@ -74,7 +74,10 @@ export function EnforcementCounters() {
 
 export function AuditPanel() {
   const { s, act } = useStore();
-  const r = s.audit;
+  const state = s.status?.state;
+  // The audit verifies a live tunnel; before connecting there is nothing to prove.
+  const tunnelUp = state === "TunnelActive" || state === "KeyRotating";
+  const r = tunnelUp || state === "FailsafeLockdown" ? s.audit : null;
   const running = !!s.busy.audit;
   return (
     <Panel
@@ -82,7 +85,7 @@ export function AuditPanel() {
       className="min-h-0"
       bodyClass="flex min-h-0 flex-col p-4"
       right={
-        <button type="button" className="btn btn-sm btn-cyan" disabled={running || !s.link?.connected} onClick={() => void act.audit()}>
+        <button type="button" className="btn btn-sm btn-cyan" disabled={running || !s.link?.connected || !tunnelUp} title={tunnelUp ? undefined : "Connect first: the audit checks a live tunnel"} onClick={() => void act.audit()}>
           {running && <Spinner />} {running ? "Auditing…" : "Run leak audit"}
         </button>
       }
@@ -91,7 +94,9 @@ export function AuditPanel() {
         <Empty>
           {running
             ? "voidwired is sending canary probes outside and inside the tunnel…"
-            : "Run the audit to prove, with canary probes, that nothing leaves outside the tunnel."}
+            : tunnelUp
+              ? "Run the audit to prove, with canary probes, that nothing leaves outside the tunnel."
+              : "Not connected yet. Press Connect: VoidWire runs this audit automatically before any traffic is allowed, and you can re-run it here any time."}
         </Empty>
       ) : (
         <>

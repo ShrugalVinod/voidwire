@@ -398,6 +398,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (p.stage === "requested") dispatch({ t: "panicFlash" });
         else if (p.stage === "done")
           toast("info", "Panic complete: keys rotated, DNS flushed, exit switched. Firewall stayed locked.");
+        else if (p.error && /not available while (Disarmed|ArmingBootLock|Handshaking|CanaryAuditing|Disarming)/.test(p.error))
+          toast("info", "Panic only works while VoidWire is connected (or locked down). Press Connect first.");
         else toast("error", `Panic failed: ${p.error ?? "unknown error"}`);
       }),
       onNotice((n) => toast(n.level, n.message)),

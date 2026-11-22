@@ -3545,7 +3545,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "vw-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anstream",
  "clap",
@@ -3561,7 +3561,7 @@ dependencies = [
 
 [[package]]
 name = "vw-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -3578,7 +3578,7 @@ dependencies = [
 
 [[package]]
 name = "vw-crypto"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "blake3",
  "blind-rsa-signatures",
@@ -3597,7 +3597,7 @@ dependencies = [
 
 [[package]]
 name = "vw-daemon"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3630,7 +3630,7 @@ dependencies = [
 
 [[package]]
 name = "vw-dns"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "arc-swap",
  "async-trait",
@@ -3656,7 +3656,7 @@ dependencies = [
 
 [[package]]
 name = "vw-firewall"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "blake3",
  "nix 0.32.0",
@@ -3669,7 +3669,7 @@ dependencies = [
 
 [[package]]
 name = "vw-freecloud"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -3694,7 +3694,7 @@ dependencies = [
 
 [[package]]
 name = "vw-leakaudit"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "async-trait",
  "blake3",
@@ -3712,7 +3712,7 @@ dependencies = [
 
 [[package]]
 name = "vw-server"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -3736,7 +3736,7 @@ dependencies = [
 
 [[package]]
 name = "vw-stealth"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "async-trait",
  "bytes",
@@ -3761,7 +3761,7 @@ dependencies = [
 
 [[package]]
 name = "vw-tui"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "crossterm",
@@ -3773,7 +3773,7 @@ dependencies = [
 
 [[package]]
 name = "vw-wg"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "async-trait",
  "blake2",
