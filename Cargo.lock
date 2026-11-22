@@ -3768,7 +3768,6 @@ dependencies = [
  "futures-util",
  "ratatui",
  "tokio",
- "tracing",
  "vw-core",
 ]
 
