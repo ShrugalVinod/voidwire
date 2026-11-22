@@ -219,7 +219,7 @@ fn leak_gauntlet_netns() {
     // Test 2: Tunnelvision rogue routes onto the physical interface.
     must(
         Some(CLIENT),
-        "ip route add 1.0.0.0/8 via 198.51.100.1 dev eth0; ip route add 0.0.0.0/1 via 198.51.100.1 dev eth0; ip route add 203.0.113.0/24 via 198.51.100.1 dev eth0",
+        "ip route add 1.0.0.0/8 via 198.51.100.1 dev eth0 onlink && ip route add 0.0.0.0/1 via 198.51.100.1 dev eth0 onlink && ip route add 203.0.113.0/24 via 198.51.100.1 dev eth0 onlink",
     );
     let cap = Range::capture(CLIENT_EGRESS);
     for _ in 0..20 {
