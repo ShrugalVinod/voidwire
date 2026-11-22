@@ -204,10 +204,8 @@ fn leak_gauntlet_netns() {
     let leaked = Range::packets(cap);
     assert!(
         leaked.is_empty(),
-        "Test 1: cleartext escaped around SIGKILL:
-{}",
-        leaked.join("
-")
+        "Test 1: cleartext escaped around SIGKILL:\n{}",
+        leaked.join("\n")
     );
     assert!(
         sh(
@@ -232,10 +230,8 @@ fn leak_gauntlet_netns() {
     let leaked = Range::packets(cap);
     assert!(
         leaked.is_empty(),
-        "Test 2: rogue routes pulled traffic to eth_isp:
-{}",
-        leaked.join("
-")
+        "Test 2: rogue routes pulled traffic to eth_isp:\n{}",
+        leaked.join("\n")
     );
 
     // Test 3: hardcoded DNS / DoT.
