@@ -3573,7 +3573,6 @@ dependencies = [
  "subtle",
  "thiserror",
  "tokio",
- "tracing",
  "zeroize",
 ]
 
@@ -3705,6 +3704,10 @@ dependencies = [
  "tracing",
  "vw-core",
  "vw-crypto",
+ "vw-dns",
+ "vw-firewall",
+ "vw-stealth",
+ "vw-wg",
 ]
 
 [[package]]

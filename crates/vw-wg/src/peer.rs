@@ -537,7 +537,13 @@ impl Peer {
         {
             return Err(WgError::Flood);
         }
-        let use_fallback = self.unconfirmed_current_response && self.previous_psk.is_some();
+        // Fallback order when our last response was never confirmed: the
+        // previous PSK, else no PSK at all. The latter recovers a VoidWire
+        // client whose daemon restarted and lost its PQ PSK; only the holder of
+        // this peer's static key can trigger it, and the client re-runs VWCP
+        // before any user traffic, so no unprotected traffic results.
+        let use_fallback = self.unconfirmed_current_response
+            && (self.previous_psk.is_some() || !self.psk.is_zero());
         let psk = if use_fallback {
             self.previous_psk.take().unwrap_or_else(Key32::zero)
         } else {

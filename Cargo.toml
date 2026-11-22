@@ -32,8 +32,6 @@ vw-firewall = { path = "crates/vw-firewall" }
 vw-dns = { path = "crates/vw-dns" }
 vw-freecloud = { path = "crates/vw-freecloud" }
 vw-leakaudit = { path = "crates/vw-leakaudit" }
-vw-daemon = { path = "crates/vw-daemon" }
-vw-server = { path = "crates/vw-server" }
 vw-tui = { path = "crates/vw-tui" }
 
 anyhow = "1"

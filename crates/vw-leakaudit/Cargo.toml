@@ -4,6 +4,7 @@ description = "VoidWire canary self-verifier and Leak Gauntlet"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 rust-version.workspace = true
 
 [features]
@@ -23,6 +24,10 @@ tracing.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }
+vw-wg.workspace = true
+vw-firewall.workspace = true
+vw-dns.workspace = true
+vw-stealth.workspace = true
 
 # Portable SIMD build on Windows (no C toolchain needed for cross type-checks).
 [target.'cfg(windows)'.dependencies]
