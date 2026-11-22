@@ -17,6 +17,11 @@ use vw_firewall::{LockdownPlan, PinnedEndpoint, TunnelIface};
 
 const CLIENT: &str = "vwg-client";
 const ISP: &str = "vwg-isp";
+/// Packets the client itself sends on the subscriber link (IPv4, or IPv6 from
+/// its global address), excluding the daemon's pinned tunnel endpoint. ARP and
+/// link-local neighbour discovery carry no user data and are not counted.
+const CLIENT_EGRESS: &str = "(src host 198.51.100.2 or (ip6 and src net 2001:db8:77::/64)) \
+     and not (udp port 51820 and host 198.51.100.1)";
 
 fn sh(ns: Option<&str>, cmd: &str) -> bool {
     let status = match ns {
@@ -120,7 +125,12 @@ impl Range {
         (child, file)
     }
 
-    fn count(mut cap: (Child, String)) -> usize {
+    fn count(cap: (Child, String)) -> usize {
+        Self::packets(cap).len()
+    }
+
+    /// Stop the capture and return one summary line per captured packet.
+    fn packets(mut cap: (Child, String)) -> Vec<String> {
         std::thread::sleep(Duration::from_millis(500));
         let _ = Command::new("kill")
             .args(["-INT", &cap.0.id().to_string()])
@@ -132,7 +142,10 @@ impl Range {
             .output()
             .expect("tcpdump -r");
         let _ = std::fs::remove_file(&cap.1);
-        String::from_utf8_lossy(&out.stdout).lines().count()
+        String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .map(str::to_string)
+            .collect()
     }
 }
 
@@ -178,7 +191,7 @@ fn leak_gauntlet_netns() {
         .spawn()
         .expect("armer");
     std::thread::sleep(Duration::from_secs(2));
-    let cap = Range::capture("not (udp port 51820 and host 198.51.100.1)");
+    let cap = Range::capture(CLIENT_EGRESS);
     let mut flood = Command::new("ip")
         .args(["netns", "exec", CLIENT, "bash", "-c"])
         .arg("end=$((SECONDS+6)); while [ $SECONDS -lt $end ]; do echo x > /dev/udp/203.0.113.99/9999 2>/dev/null; timeout 0.2 bash -c '</dev/tcp/203.0.113.99/80' 2>/dev/null; done")
@@ -188,10 +201,13 @@ fn leak_gauntlet_netns() {
     armer.kill().expect("SIGKILL armer");
     let _ = armer.wait();
     let _ = flood.wait();
-    assert_eq!(
-        Range::count(cap),
-        0,
-        "Test 1: cleartext escaped around SIGKILL"
+    let leaked = Range::packets(cap);
+    assert!(
+        leaked.is_empty(),
+        "Test 1: cleartext escaped around SIGKILL:
+{}",
+        leaked.join("
+")
     );
     assert!(
         sh(
@@ -206,21 +222,26 @@ fn leak_gauntlet_netns() {
         Some(CLIENT),
         "ip route add 1.0.0.0/8 via 198.51.100.1 dev eth0; ip route add 0.0.0.0/1 via 198.51.100.1 dev eth0; ip route add 203.0.113.0/24 via 198.51.100.1 dev eth0",
     );
-    let cap = Range::capture("not (udp port 51820 and host 198.51.100.1)");
+    let cap = Range::capture(CLIENT_EGRESS);
     for _ in 0..20 {
         sh(
             Some(CLIENT),
             "echo x > /dev/udp/1.1.1.1/9999; echo x > /dev/udp/203.0.113.99/9999",
         );
     }
-    assert_eq!(
-        Range::count(cap),
-        0,
-        "Test 2: rogue routes pulled traffic to eth_isp"
+    let leaked = Range::packets(cap);
+    assert!(
+        leaked.is_empty(),
+        "Test 2: rogue routes pulled traffic to eth_isp:
+{}",
+        leaked.join("
+")
     );
 
     // Test 3: hardcoded DNS / DoT.
-    let cap = Range::capture("port 53 or port 853");
+    let cap = Range::capture(
+        "(src host 198.51.100.2 or src net 2001:db8:77::/64) and (port 53 or port 853)",
+    );
     for _ in 0..10 {
         sh(
             Some(CLIENT),
@@ -228,7 +249,12 @@ fn leak_gauntlet_netns() {
         );
         sh(Some(CLIENT), "echo q > /dev/udp/2001:db8:77::1/53");
     }
-    assert_eq!(Range::count(cap), 0, "Test 3: DNS left outside the tunnel");
+    let leaked = Range::packets(cap);
+    assert!(
+        leaked.is_empty(),
+        "Test 3: DNS left outside the tunnel:\n{}",
+        leaked.join("\n")
+    );
 
     // Test 4: kernel accepted the STUN payload expression.
     let table = Command::new("ip")
