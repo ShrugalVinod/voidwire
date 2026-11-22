@@ -14,6 +14,10 @@
 //! 0x04 ServerAck   = session_id[16] · v4[4] · v4_prefix u8 · v6[16] · v6_prefix u8
 //!                    · rotate_secs u16 · confirm[32]
 //! 0x05 Error       = code u16 · reason_len u8 · reason utf8
+//! 0x06 RedeemRequest  = count u8 (1..=32) · count × blinded_msg[256]
+//! 0x07 RedeemResponse = tier u8 · count u8 · count × blind_sig[256]
+//! 0x08 AttestRequest  = nonce[32]
+//! 0x09 AttestResponse = len u16 · SignedAttestation::encode()
 //! ```
 //!
 //! All integers are big-endian. Bodies longer than [`MAX_FRAGMENT_BODY`] are
@@ -36,6 +40,8 @@ use vw_core::config::Bytes32;
 use vw_core::consts::PQ_ROTATE_SECS;
 use vw_core::secret::Key32;
 
+use crate::attest::SignedAttestation;
+use crate::blind::{BlindRequest, RSA_LEN};
 use crate::error::{CryptoError, Result};
 use crate::hybrid::{mlkem_encapsulate, MlKemKeypair, X25519Ephemeral, MLKEM_CT_LEN, MLKEM_EK_LEN};
 use crate::identity::{self, NodeIdentity, SIGNATURE_LEN};
@@ -103,6 +109,14 @@ pub enum MsgType {
     ServerAck = 0x04,
     /// 0x05, either direction.
     Error = 0x05,
+    /// 0x06, client → node: blinded token batch (ARCHITECTURE.md §8.1).
+    RedeemRequest = 0x06,
+    /// 0x07, node → client: blind signatures for a [`MsgType::RedeemRequest`].
+    RedeemResponse = 0x07,
+    /// 0x08, client → node: request a fresh signed attestation.
+    AttestRequest = 0x08,
+    /// 0x09, node → client: the signed attestation.
+    AttestResponse = 0x09,
 }
 
 impl MsgType {
@@ -114,6 +128,10 @@ impl MsgType {
             0x03 => MsgType::ClientKem,
             0x04 => MsgType::ServerAck,
             0x05 => MsgType::Error,
+            0x06 => MsgType::RedeemRequest,
+            0x07 => MsgType::RedeemResponse,
+            0x08 => MsgType::AttestRequest,
+            0x09 => MsgType::AttestResponse,
             other => return Err(CryptoError::UnexpectedType(other)),
         })
     }
@@ -634,6 +652,166 @@ impl ErrorMsg {
             code: self.code,
             reason: self.reason,
         }
+    }
+}
+
+/// Maximum number of blinded messages in one [`RedeemRequest`].
+pub const MAX_REDEEM: usize = 32;
+
+fn redeem_count(what: &'static str, n: usize) -> Result<u8> {
+    if n == 0 || n > MAX_REDEEM {
+        return Err(CryptoError::Length {
+            what,
+            expected: MAX_REDEEM,
+            got: n,
+        });
+    }
+    Ok(n as u8)
+}
+
+/// RedeemRequest body (`count u8 · count × blinded_msg[256]`), sent by an
+/// invite-admitted client inside its PQ session (ARCHITECTURE.md §8.1).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RedeemRequest {
+    /// 1..=32 RFC 9474 blinded messages, each exactly 256 bytes.
+    pub blinded: Vec<BlindRequest>,
+}
+
+impl RedeemRequest {
+    /// Encode the body; fails unless 1..=32 requests are present.
+    pub fn encode(&self) -> Result<Vec<u8>> {
+        let count = redeem_count("RedeemRequest count", self.blinded.len())?;
+        let mut b = Vec::with_capacity(1 + self.blinded.len() * RSA_LEN);
+        b.push(count);
+        for r in &self.blinded {
+            b.extend_from_slice(r.as_bytes());
+        }
+        Ok(b)
+    }
+
+    /// Decode with exact length checks.
+    pub fn decode(b: &[u8]) -> Result<Self> {
+        let count = *b.first().ok_or(CryptoError::Malformed("RedeemRequest"))? as usize;
+        redeem_count("RedeemRequest count", count)?;
+        exact_len("VWCP RedeemRequest", b, 1 + count * RSA_LEN)?;
+        let blinded = b[1..]
+            .chunks_exact(RSA_LEN)
+            .map(BlindRequest::from_bytes)
+            .collect::<Result<Vec<_>>>()?;
+        Ok(Self { blinded })
+    }
+
+    /// Encode as ready-to-send (fragmented) datagrams.
+    pub fn datagrams(&self) -> Result<Vec<Vec<u8>>> {
+        fragment(MsgType::RedeemRequest, &self.encode()?)
+    }
+}
+
+/// RedeemResponse body (`tier u8 · count u8 · count × blind_sig[256]`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RedeemResponse {
+    /// Tier of the issuer key that signed the batch.
+    pub tier: u8,
+    /// One 256-byte blind signature per blinded message, in request order.
+    pub blind_sigs: Vec<Vec<u8>>,
+}
+
+impl RedeemResponse {
+    /// Encode the body; fails unless 1..=32 signatures of 256 bytes are present.
+    pub fn encode(&self) -> Result<Vec<u8>> {
+        let count = redeem_count("RedeemResponse count", self.blind_sigs.len())?;
+        let mut b = Vec::with_capacity(2 + self.blind_sigs.len() * RSA_LEN);
+        b.push(self.tier);
+        b.push(count);
+        for s in &self.blind_sigs {
+            exact_len("RedeemResponse blind_sig", s, RSA_LEN)?;
+            b.extend_from_slice(s);
+        }
+        Ok(b)
+    }
+
+    /// Decode with exact length checks.
+    pub fn decode(b: &[u8]) -> Result<Self> {
+        if b.len() < 2 {
+            return Err(CryptoError::Malformed("RedeemResponse"));
+        }
+        let count = b[1] as usize;
+        redeem_count("RedeemResponse count", count)?;
+        exact_len("VWCP RedeemResponse", b, 2 + count * RSA_LEN)?;
+        Ok(Self {
+            tier: b[0],
+            blind_sigs: b[2..].chunks_exact(RSA_LEN).map(<[u8]>::to_vec).collect(),
+        })
+    }
+
+    /// Encode as ready-to-send (fragmented) datagrams.
+    pub fn datagrams(&self) -> Result<Vec<Vec<u8>>> {
+        fragment(MsgType::RedeemResponse, &self.encode()?)
+    }
+}
+
+/// AttestRequest body (`nonce[32]`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AttestRequest {
+    /// Verifier-chosen freshness nonce echoed in the attestation.
+    pub nonce: [u8; 32],
+}
+
+impl AttestRequest {
+    /// Encode the body.
+    pub fn encode(&self) -> Vec<u8> {
+        self.nonce.to_vec()
+    }
+
+    /// Decode with an exact length check.
+    pub fn decode(b: &[u8]) -> Result<Self> {
+        exact_len("VWCP AttestRequest", b, 32)?;
+        Ok(Self { nonce: arr(b) })
+    }
+
+    /// Encode as ready-to-send datagrams.
+    pub fn datagrams(&self) -> Result<Vec<Vec<u8>>> {
+        fragment(MsgType::AttestRequest, &self.encode())
+    }
+}
+
+/// AttestResponse body (`len u16 · SignedAttestation::encode()`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AttestResponse {
+    /// The signed report (verify with [`SignedAttestation::verify`]).
+    pub attestation: SignedAttestation,
+}
+
+impl AttestResponse {
+    /// Encode the body.
+    pub fn encode(&self) -> Result<Vec<u8>> {
+        let enc = self.attestation.encode()?;
+        let len = u16::try_from(enc.len()).map_err(|_| CryptoError::Length {
+            what: "AttestResponse",
+            expected: u16::MAX as usize,
+            got: enc.len(),
+        })?;
+        let mut b = Vec::with_capacity(2 + enc.len());
+        b.extend_from_slice(&len.to_be_bytes());
+        b.extend_from_slice(&enc);
+        Ok(b)
+    }
+
+    /// Decode with exact length checks (the signature is not verified).
+    pub fn decode(b: &[u8]) -> Result<Self> {
+        if b.len() < 2 {
+            return Err(CryptoError::Malformed("AttestResponse"));
+        }
+        let len = u16::from_be_bytes([b[0], b[1]]) as usize;
+        exact_len("VWCP AttestResponse", b, 2 + len)?;
+        Ok(Self {
+            attestation: SignedAttestation::decode(&b[2..])?,
+        })
+    }
+
+    /// Encode as ready-to-send datagrams.
+    pub fn datagrams(&self) -> Result<Vec<Vec<u8>>> {
+        fragment(MsgType::AttestResponse, &self.encode()?)
     }
 }
 
@@ -1371,10 +1549,10 @@ mod tests {
         bad[4] = 2;
         assert_eq!(Header::parse(&bad).unwrap_err(), CryptoError::Version(2));
         let mut bad = good.clone();
-        bad[5] = 0x06;
+        bad[5] = 0x0a;
         assert_eq!(
             Header::parse(&bad).unwrap_err(),
-            CryptoError::UnexpectedType(6)
+            CryptoError::UnexpectedType(0x0a)
         );
         let mut bad = good.clone();
         bad[7] = 0;
@@ -1485,5 +1663,89 @@ mod tests {
         let c = client.on_server_ack(&reassemble_all(&ack).body).unwrap();
         assert_eq!(c.psk, s.psk);
         assert_eq!(c.session_id, s.session_id);
+    }
+
+    #[test]
+    fn redeem_and_attest_messages_roundtrip() {
+        use crate::attest::AttestationReport;
+        let blinded: Vec<BlindRequest> = (0..32u8)
+            .map(|i| BlindRequest::from_bytes(&[i; RSA_LEN]).unwrap())
+            .collect();
+        let req = RedeemRequest {
+            blinded: blinded.clone(),
+        };
+        let body = req.encode().unwrap();
+        assert_eq!(body.len(), 1 + 32 * 256);
+        assert_eq!(body[0], 32);
+        assert_eq!(&body[1..257], &[0u8; 256][..]);
+        let d = req.datagrams().unwrap();
+        assert_eq!(d.len(), 7);
+        let m = reassemble_all(&d);
+        assert_eq!(m.ty, MsgType::RedeemRequest);
+        assert_eq!(RedeemRequest::decode(&m.body).unwrap(), req);
+        assert!(RedeemRequest { blinded: vec![] }.encode().is_err());
+        let mut too_many = blinded.clone();
+        too_many.push(blinded[0].clone());
+        assert!(RedeemRequest { blinded: too_many }.encode().is_err());
+        assert!(RedeemRequest::decode(&body[..body.len() - 1]).is_err());
+        assert!(RedeemRequest::decode(&[0]).is_err());
+        assert!(RedeemRequest::decode(&[33]).is_err());
+
+        let resp = RedeemResponse {
+            tier: 2,
+            blind_sigs: vec![vec![0xAB; RSA_LEN]; 3],
+        };
+        let body = resp.encode().unwrap();
+        assert_eq!(&body[..2], &[2, 3]);
+        assert_eq!(body.len(), 2 + 3 * 256);
+        let m = reassemble_all(&resp.datagrams().unwrap());
+        assert_eq!(m.ty, MsgType::RedeemResponse);
+        assert_eq!(RedeemResponse::decode(&m.body).unwrap(), resp);
+        assert!(RedeemResponse {
+            tier: 0,
+            blind_sigs: vec![vec![0; 255]]
+        }
+        .encode()
+        .is_err());
+        assert!(RedeemResponse::decode(&body[..body.len() - 1]).is_err());
+
+        let ar = AttestRequest { nonce: [7; 32] };
+        let d = ar.datagrams().unwrap();
+        assert_eq!(d.len(), 1);
+        assert_eq!(&d[0][..8], b"VWCP\x01\x08\x00\x01");
+        assert_eq!(AttestRequest::decode(&d[0][8..]).unwrap(), ar);
+        assert!(AttestRequest::decode(&[0; 31]).is_err());
+
+        let id = NodeIdentity::generate();
+        let report = AttestationReport {
+            binary_blake3: "ab".repeat(32),
+            swap_disabled: true,
+            logging_off: true,
+            ram_only: false,
+            uptime_secs: 5,
+            unix_time: 1_800_000_000,
+            nonce: [7; 32],
+            node_identity: id.public(),
+        };
+        let resp = AttestResponse {
+            attestation: report.sign(&id).unwrap(),
+        };
+        let body = resp.encode().unwrap();
+        let enc = resp.attestation.encode().unwrap();
+        assert_eq!(&body[..2], &(enc.len() as u16).to_be_bytes());
+        let m = reassemble_all(&resp.datagrams().unwrap());
+        assert_eq!(m.ty, MsgType::AttestResponse);
+        let back = AttestResponse::decode(&m.body).unwrap();
+        back.attestation.verify(&id.public(), &[7; 32]).unwrap();
+        assert!(AttestResponse::decode(&body[..body.len() - 1]).is_err());
+        for (b, t) in [
+            (0x06, MsgType::RedeemRequest),
+            (0x07, MsgType::RedeemResponse),
+            (0x08, MsgType::AttestRequest),
+            (0x09, MsgType::AttestResponse),
+        ] {
+            assert_eq!(MsgType::from_u8(b).unwrap(), t);
+            assert_eq!(t as u8, b);
+        }
     }
 }

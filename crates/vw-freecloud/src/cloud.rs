@@ -283,6 +283,9 @@ curl -fsSL "${{VW_BASE}}/v${{VW_VERSION}}/${{PKG}}.tar.gz.sha256" -o "$TMP/$PKG.
 tar -xzf "$TMP/$PKG.tar.gz" -C "$TMP"
 install -m 0755 "$TMP/$PKG/voidwire-node" /usr/local/bin/voidwire-node
 rm -rf "$TMP"
+# Cloud VMs sit behind 1:1 NAT: publish the real public address in the URI.
+VW_PUB="$(curl -fsS4 --max-time 10 https://api.ipify.org || true)"
+printf 'VOIDWIRE_PUBLIC_HOST=%s\n' "$VW_PUB" > /etc/voidwire-node.env
 cat > /etc/systemd/system/voidwire-node.service <<'UNIT'
 [Unit]
 Description=VoidWire RAM-only exit node
@@ -291,6 +294,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+EnvironmentFile=-/etc/voidwire-node.env
 RuntimeDirectory=voidwire
 RuntimeDirectoryMode=0700
 ExecStart=/usr/local/bin/voidwire-node run {flags}
@@ -758,6 +762,7 @@ mod tests {
             "--authorize bmXOC",
             "iptables -I INPUT 1",
             "RuntimeDirectory=voidwire",
+            "VOIDWIRE_PUBLIC_HOST",
         ] {
             assert!(ci.contains(needle), "missing {needle}");
         }
