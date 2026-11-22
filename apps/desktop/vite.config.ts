@@ -2,6 +2,9 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
+// Node globals used at build time only (avoids a @types/node dependency).
+declare const process: { env: Record<string, string | undefined> };
+
 // Tauri expects a fixed dev port and must not have Vite clear its output.
 const host = process.env.TAURI_DEV_HOST;
 

@@ -618,7 +618,7 @@ mod sys {
             use std::io::Read;
             loop {
                 let mut g = self.fd.readable().await?;
-                match g.try_io(|f| (&*f.get_ref()).read(buf)) {
+                match g.try_io(|f| f.get_ref().read(buf)) {
                     Ok(r) => return Ok(r?),
                     Err(_would_block) => continue,
                 }
@@ -628,7 +628,7 @@ mod sys {
             use std::io::Write;
             loop {
                 let mut g = self.fd.writable().await?;
-                match g.try_io(|f| (&*f.get_ref()).write(packet)) {
+                match g.try_io(|f| f.get_ref().write(packet)) {
                     Ok(r) => {
                         r?;
                         return Ok(());
@@ -662,8 +662,12 @@ mod sys {
         let flags = nix::fcntl::OFlag::from_bits_truncate(flags) | nix::fcntl::OFlag::O_NONBLOCK;
         nix::fcntl::fcntl(&file, nix::fcntl::FcntlArg::F_SETFL(flags))
             .map_err(|e| VwError::Firewall(format!("fcntl: {e}")))?;
+        // The AsyncFd owns `file` for its whole lifetime, so the I/O-safety
+        // concern behind the deprecation (borrowed raw fds) does not apply.
+        #[allow(deprecated)]
+        let fd = tokio::io::unix::AsyncFd::new(file)?;
         let tun = FdTun {
-            fd: tokio::io::unix::AsyncFd::new(file)?,
+            fd,
             name: vw_firewall::linux::netns::NS_TUN_NAME.into(),
             mtu,
         };
