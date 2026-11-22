@@ -119,7 +119,7 @@ impl Pair {
 }
 
 #[test]
-fn reserved_bytes_written_before_mac_and_ignored_on_receive() {
+fn reserved_bytes_outside_mac_like_warp() {
     let mut p = pair_with(None, [0xc1, 0x1e, 0x47], [0x07, 0x08, 0x09]);
     let now = Instant::now();
     let init = p.client.tick(now);
@@ -146,11 +146,23 @@ fn reserved_bytes_written_before_mac_and_ignored_on_receive() {
         p.client.decapsulate(&tampered, now).unwrap(),
         Decapsulated::Tunnel(ip(2))
     );
-    // ...but it is covered by mac1 on handshakes.
+    // Handshake MACs treat the reserved bytes as zero (Cloudflare WARP
+    // semantics), so rewriting them in transit does not invalidate mac1...
     let mut init = p.client.initiate_handshake(now).unwrap();
     init[2] ^= 1;
-    assert_eq!(
+    assert!(!matches!(
         p.server.decapsulate(Some(src()), &init, now),
+        Err(WgError::InvalidMac)
+    ));
+    // ...while every other header byte is still covered.
+    let mut init = p
+        .client
+        .initiate_handshake(now + std::time::Duration::from_secs(1))
+        .unwrap();
+    init[5] ^= 1;
+    assert_eq!(
+        p.server
+            .decapsulate(Some(src()), &init, now + std::time::Duration::from_secs(1)),
         Err(WgError::InvalidMac)
     );
 }

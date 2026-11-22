@@ -218,18 +218,32 @@ pub async fn probe_candidate(
         masque_target: None,
         connect_timeout: Duration::from_secs(5),
     };
-    let transport =
-        match tokio::time::timeout(Duration::from_secs(6), platform.connect(&c.endpoint, &opts))
-            .await
-        {
-            Ok(Ok(t)) => t,
-            _ => return r,
-        };
-    let mut s = DirectSession::new(peer_for(&c.node, keys), transport);
-    let Ok(hs) = s.handshake(3, Duration::from_secs(2)).await else {
-        s.close().await;
-        return r;
+    let transport = match tokio::time::timeout(
+        Duration::from_secs(6),
+        platform.connect(&c.endpoint, &opts),
+    )
+    .await
+    {
+        Ok(Ok(t)) => t,
+        Ok(Err(e)) => {
+            tracing::info!(candidate = %c.name, transport = ?c.transport(), "probe: transport connect failed: {}", vw_firewall::scrub_addresses(&e.to_string()));
+            return r;
+        }
+        Err(_) => {
+            tracing::info!(candidate = %c.name, transport = ?c.transport(), "probe: transport connect timed out");
+            return r;
+        }
     };
+    let mut s = DirectSession::new(peer_for(&c.node, keys), transport);
+    let hs = match s.handshake(3, Duration::from_secs(2)).await {
+        Ok(hs) => hs,
+        Err(e) => {
+            tracing::info!(candidate = %c.name, transport = ?c.transport(), "probe: WireGuard handshake failed: {}", vw_firewall::scrub_addresses(&e.to_string()));
+            s.close().await;
+            return r;
+        }
+    };
+    tracing::info!(candidate = %c.name, transport = ?c.transport(), ms = hs.as_millis() as u64, "probe: handshake ok");
     r.reachable = true;
     r.handshake_ms = Some(hs.as_secs_f64() * 1000.0);
     let (src, dst) = probe_addrs(&c.node);

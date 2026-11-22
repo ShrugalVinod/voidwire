@@ -166,7 +166,8 @@ REKEY_AFTER_MESSAGES 2^60, REJECT_AFTER_MESSAGES 2^64−2^13−1, REKEY_AFTER_TI
 2048. Interop is verified against `boringtun` in tests.
 
 - `reserved: [u8;3]` per peer (WARP client id) is written into bytes 1..4 of
-  every outgoing message *before* MAC computation and ignored on receive.
+  every outgoing message; handshake MACs are computed with those bytes read as
+  zero (Cloudflare's semantics) and they are ignored on receive.
 - Cascade: the inner session's ciphertext is wrapped in an IPv4/UDP packet
   (src = tunnel address assigned by Hop 1, dst = Hop 2 endpoint) and fed to the
   outer session as plaintext.

@@ -295,16 +295,29 @@ pub fn cookie_key(static_public: &[u8; 32]) -> [u8; 32] {
 
 /// Write mac1 (and mac2 when a cookie is held) into the last 32 bytes of a
 /// handshake message. Returns the mac1 value (needed to decrypt cookie replies).
+///
+/// The MACs are computed with the three reserved header bytes (1..4) treated as
+/// zero. Cloudflare WARP carries its client id there and validates MACs over the
+/// zeroed header, as do WARP-capable clients (they stamp the bytes after the
+/// MACs); with zero reserved bytes this is identical to standard WireGuard.
 pub fn write_macs(msg: &mut [u8], mac1_key: &[u8; 32], cookie: Option<&[u8; 16]>) -> [u8; 16] {
     let n = msg.len();
-    let m1 = mac(mac1_key, &[&msg[..n - 32]]);
+    let m1 = mac_zero_reserved(mac1_key, msg, n - 32);
     msg[n - 32..n - 16].copy_from_slice(&m1);
     let m2 = match cookie {
-        Some(c) => mac(c, &[&msg[..n - 16]]),
+        Some(c) => mac_zero_reserved(c, msg, n - 16),
         None => [0u8; 16],
     };
     msg[n - 16..].copy_from_slice(&m2);
     m1
+}
+
+/// MAC over `msg[..end]` with the reserved bytes 1..4 read as zero.
+fn mac_zero_reserved(key: &[u8], msg: &[u8], end: usize) -> [u8; 16] {
+    if end < 4 {
+        return mac(key, &[&msg[..end]]);
+    }
+    mac(key, &[&msg[..1], &[0u8; 3], &msg[4..end]])
 }
 
 // ---------------------------------------------------------------------------
@@ -640,7 +653,7 @@ impl CookieChecker {
         if n < 32 {
             return false;
         }
-        let expect = mac(&self.mac1_key, &[&msg[..n - 32]]);
+        let expect = mac_zero_reserved(&self.mac1_key, msg, n - 32);
         subtle_eq(&expect, &msg[n - 32..n - 16])
     }
 
@@ -680,7 +693,7 @@ impl CookieChecker {
         };
         let n = msg.len();
         let cookie = self.cookie_for(src, now);
-        let expect = mac(&cookie, &[&msg[..n - 16]]);
+        let expect = mac_zero_reserved(&cookie, msg, n - 16);
         if subtle_eq(&expect, &msg[n - 16..]) {
             return Ok(MacCheck::Accept);
         }
