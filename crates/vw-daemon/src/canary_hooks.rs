@@ -168,7 +168,15 @@ impl CanaryHooks for DaemonHooks<'_> {
             addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)), 443),
         };
         self.gate.permit(p, PROBE_TTL);
-        let r = self.platform.https_trace(false).await;
+        // Busy free servers drop packets: retry before declaring failure.
+        let mut r = self.platform.https_trace(false).await;
+        for _ in 0..2 {
+            if r.is_ok() {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(700)).await;
+            r = self.platform.https_trace(false).await;
+        }
         self.gate.revoke(p);
         r
     }

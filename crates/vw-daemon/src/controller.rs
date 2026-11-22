@@ -87,7 +87,13 @@ struct Info {
     baseline_ip: Option<[u8; 32]>,
     network_fp: Option<String>,
     last_optimize: Option<Instant>,
+    /// Exits that failed the canary during the current connect attempt; Auto
+    /// skips them and tries the next-best path.
+    excluded_exits: Vec<String>,
 }
+
+/// How many alternative exits Auto tries after a failed canary.
+const AUTO_FALLBACKS: usize = 2;
 
 /// The daemon core. Shared as `Arc<Controller>`.
 pub struct Controller {
@@ -153,7 +159,7 @@ impl Controller {
             generation: AtomicU64::new(0),
             ip_salt: rand::random(),
             started: Instant::now(),
-            canary_timeout: Duration::from_secs(8),
+            canary_timeout: Duration::from_secs(15),
         });
         c.spawn_telemetry();
         c
@@ -413,7 +419,11 @@ impl Controller {
             transport,
             gateway,
         };
-        lock(&self.info).desired = Some(params);
+        {
+            let mut i = lock(&self.info);
+            i.desired = Some(params);
+            i.excluded_exits.clear();
+        }
         let token = self.new_cancel();
         let _ops = self.ops.lock().await;
         tokio::select! {
@@ -458,6 +468,8 @@ impl Controller {
             Err(e) => {
                 tracing::warn!(error = %e, "handshake failed; failsafe lockdown");
                 self.fire(DomeEvent::HandshakeFailed)?;
+                self.forget_cached_decision().await;
+                lock(&self.info).excluded_exits.clear();
                 return Err(e);
             }
         };
@@ -473,11 +485,29 @@ impl Controller {
         };
         self.events.emit(DaemonEvent::Audit(report.clone()));
         if !report.passed {
+            let exit_name = tunnel.path.exit().node.name.clone();
             tunnel.shutdown().await;
             let _ = self.platform.restore_routes().await;
             self.fire(DomeEvent::CanaryFailed)?;
+            self.forget_cached_decision().await;
+            if p.gateway.is_none() {
+                let retry = {
+                    let mut i = lock(&self.info);
+                    if i.excluded_exits.len() < AUTO_FALLBACKS {
+                        i.excluded_exits.push(exit_name);
+                        true
+                    } else {
+                        false
+                    }
+                };
+                if retry {
+                    tracing::info!("canary failed on this exit; trying the next-best path");
+                    return Box::pin(self.connect_flow(p)).await;
+                }
+            }
             return Err(VwError::Config("canary audit failed; lockdown kept".into()));
         }
+        lock(&self.info).excluded_exits.clear();
         self.fire(DomeEvent::CanaryPassed)?;
         lock(&self.info).profile = Some(p.profile);
         let gen = self.generation.fetch_add(1, Ordering::SeqCst) + 1;
@@ -640,6 +670,7 @@ impl Controller {
             && keep_tunnel.is_none()
             && p.country.is_none()
             && p.gateway.is_none()
+            && lock(&self.info).excluded_exits.is_empty()
         {
             self.store
                 .lock()
@@ -676,6 +707,21 @@ impl Controller {
             &results,
             &verdict,
         );
+        let excluded = lock(&self.info).excluded_exits.clone();
+        let ranked = if excluded.is_empty() || p.gateway.is_some() {
+            ranked
+        } else {
+            let kept: Vec<_> = ranked
+                .iter()
+                .filter(|path| !excluded.contains(&path.exit().node.name))
+                .cloned()
+                .collect();
+            if kept.is_empty() {
+                ranked
+            } else {
+                kept
+            }
+        };
         let ranked = match p.gateway {
             Some(g) => {
                 // Exactly the chosen exit. Direct (fastest) unless the user
@@ -724,6 +770,19 @@ impl Controller {
         info.ranked = ranked;
         info.last_optimize = Some(Instant::now());
         Ok((best, decision))
+    }
+
+    /// Forget this network's cached optimizer decision so the next attempt
+    /// measures again instead of reusing a path that just failed.
+    async fn forget_cached_decision(&self) {
+        let fp = lock(&self.info).network_fp.clone();
+        if let Some(fp) = fp {
+            let mut s = self.store.lock().await;
+            s.forget_decision(&fp);
+            if let Err(e) = s.save() {
+                tracing::debug!(error = %e, "could not persist decision cache");
+            }
+        }
     }
 
     /// CanaryAuditing: OS TUN, firewall with tunnel, vault, routes, system DNS.

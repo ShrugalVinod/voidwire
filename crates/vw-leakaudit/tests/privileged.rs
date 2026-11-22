@@ -20,7 +20,8 @@ const ISP: &str = "vwg-isp";
 /// Packets the client itself sends on the subscriber link (IPv4, or IPv6 from
 /// its global address), excluding the daemon's pinned tunnel endpoint. ARP and
 /// link-local neighbour discovery carry no user data and are not counted.
-const CLIENT_EGRESS: &str = "(src host 198.51.100.2 or (ip6 and src net 2001:db8:77::/64)) \
+const CLIENT_EGRESS: &str =
+    "((ip and src host 198.51.100.2) or (ip6 and src net 2001:db8:77::/64)) \
      and not (udp port 51820 and host 198.51.100.1)";
 
 fn sh(ns: Option<&str>, cmd: &str) -> bool {
@@ -236,7 +237,7 @@ fn leak_gauntlet_netns() {
 
     // Test 3: hardcoded DNS / DoT.
     let cap = Range::capture(
-        "(src host 198.51.100.2 or src net 2001:db8:77::/64) and (port 53 or port 853)",
+        "((ip and src host 198.51.100.2) or (ip6 and src net 2001:db8:77::/64)) and (port 53 or port 853)",
     );
     for _ in 0..10 {
         sh(

@@ -228,6 +228,11 @@ impl Store {
             .map(|c| c.decision.clone())
     }
 
+    /// Drop the cached decision for a network (after it failed in practice).
+    pub fn forget_decision(&mut self, fp: &str) {
+        self.data.optimizer_cache.retain(|c| c.fingerprint != fp);
+    }
+
     pub fn cache_decision(&mut self, fp: String, decision: OptimizerDecision) {
         self.data.optimizer_cache.retain(|c| c.fingerprint != fp);
         self.data.optimizer_cache.insert(

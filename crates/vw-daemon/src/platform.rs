@@ -318,7 +318,9 @@ impl Platform for OsPlatform {
 
     async fn https_trace(&self, marked: bool) -> Result<String> {
         let pin = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)), 443);
-        let c = Self::https(marked, vec![pin])?;
+        let mut c = Self::https(marked, vec![pin])?;
+        // Short per-attempt timeout; callers retry on busy links.
+        c.timeout = std::time::Duration::from_secs(4);
         let r = c
             .request(
                 hyper::Method::GET,

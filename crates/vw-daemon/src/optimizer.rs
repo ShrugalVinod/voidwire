@@ -556,14 +556,10 @@ pub fn rank_paths(
         _ => true,
     };
     paths.retain(want_hops);
-    // Preference order: Auto prefers two hops when a node exists; Max
-    // Anonymity prefers the most hops; then score.
+    // Preference order: Auto is purely the best measured score (speed, delay
+    // and loss); Max Anonymity prefers the most hops; then score.
     let pref = |p: &RankedPath| -> usize {
         match profile {
-            Profile::Auto => {
-                usize::from(p.hops.len() == 2) * 2
-                    + usize::from(p.hops.len() == 1 && p.hops[0].node.kind != NodeKind::Warp)
-            }
             Profile::MaxAnonymity => p.hops.len(),
             _ => 0,
         }
@@ -732,7 +728,7 @@ mod tests {
     }
 
     #[test]
-    fn auto_prefers_two_hops_and_scores() {
+    fn auto_picks_fastest_and_profiles_filter() {
         let a = node(
             "a",
             NodeKind::Voidwire,
@@ -749,7 +745,10 @@ mod tests {
         let mut r: Vec<ProbeResult> = c.iter().map(|c| res(c, true, 100.0, 10.0)).collect();
         let v = network_verdict(&r);
         apply_scores(&mut r, &v);
+        // Auto is the fastest measured path: a single hop beats two equal hops.
         let paths = rank_paths(Profile::Auto, None, &|_| false, &c, &r, &v);
+        assert_eq!(paths[0].hops.len(), 1);
+        let paths = rank_paths(Profile::Multihop, None, &|_| false, &c, &r, &v);
         assert_eq!(paths[0].names(), vec!["a", "b"]);
         let d = decision_for(&paths[0], false, v, r.clone());
         assert_eq!(d.mtu, 1280);
