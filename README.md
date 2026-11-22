@@ -30,10 +30,12 @@ Download from [Releases](https://github.com/ShrugalVinod/voidwire/releases):
 | macOS (Intel) | `VoidWire_<version>_x64.dmg` |
 | Windows 11 | `VoidWire_<version>_x64-setup.exe` (or `.msi`) |
 
-**macOS**: open the `.dmg`, drag VoidWire to Applications. The build is not
-notarized, so the first time right-click VoidWire → **Open** → **Open**. Click
-**Install VoidWire service** and enter your password once (it installs the
-background service that controls the firewall and tunnel).
+**macOS**: open the `.dmg`, drag VoidWire to Applications and open it. Builds
+are not notarized yet, so macOS blocks the first launch: open **System Settings →
+Privacy & Security**, scroll to "VoidWire was blocked", click **Open Anyway** and
+confirm. (On macOS 14 and older, right-click VoidWire → **Open** also works.)
+Then click **Install VoidWire service** and enter your password once (it installs
+the background service that controls the firewall and tunnel).
 
 **Windows 11**: run the installer. SmartScreen may say "Windows protected your PC"
 for unsigned builds: **More info → Run anyway**. The installer registers the
