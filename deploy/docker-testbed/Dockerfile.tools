@@ -1,0 +1,4 @@
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      iproute2 nftables tcpdump dnsmasq iputils-ping netcat-openbsd tshark ca-certificates \
+ && rm -rf /var/lib/apt/lists/*

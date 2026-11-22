@@ -1,0 +1,8 @@
+FROM rust:1-bookworm AS build
+WORKDIR /src
+COPY . .
+RUN cargo build --release --locked -p vw-daemon -p vw-cli -p vw-server
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends iproute2 nftables tcpdump ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+COPY --from=build /src/target/release/voidwired /src/target/release/voidwire /src/target/release/voidwire-node /usr/local/bin/

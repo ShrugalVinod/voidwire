@@ -1,0 +1,73 @@
+# VoidWire cyber-range: simulated ISP, rogue DHCP (CVE-2024-3661), DPI box,
+# a RAM-only exit node and a locked-down client. Linux Docker host required
+# (CAP_NET_ADMIN, /dev/net/tun). Run: ./run-range.sh
+name: voidwire-range
+
+networks:
+  lan:        # client <-> home router (rogue DHCP lives here)
+    ipam: { config: [{ subnet: 192.168.77.0/24 }] }
+  isp:        # home router <-> ISP observer (eth_isp captures here)
+    ipam: { config: [{ subnet: 198.51.100.0/24 }] }
+  internet:   # ISP <-> exit node and the public observer 203.0.113.99
+    ipam: { config: [{ subnet: 203.0.113.0/24 }] }
+
+x-priv: &priv
+  cap_add: [NET_ADMIN, NET_RAW]
+  devices: ["/dev/net/tun:/dev/net/tun"]
+  sysctls: { net.ipv4.ip_forward: "1" }
+
+services:
+  isp:
+    <<: *priv
+    build: { context: ., dockerfile: Dockerfile.tools }
+    command: ["/range/isp.sh"]
+    volumes: ["./scripts:/range:ro", "./captures:/captures"]
+    networks:
+      isp: { ipv4_address: 198.51.100.1 }
+      internet: { ipv4_address: 203.0.113.1 }
+
+  dpi:
+    <<: *priv
+    build: { context: ., dockerfile: Dockerfile.tools }
+    command: ["/range/dpi.sh"]
+    volumes: ["./scripts:/range:ro"]
+    networks:
+      lan: { ipv4_address: 192.168.77.1 }
+      isp: { ipv4_address: 198.51.100.2 }
+
+  rogue-dhcp:
+    <<: *priv
+    build: { context: ., dockerfile: Dockerfile.tools }
+    command: ["/range/rogue-dhcp.sh"]
+    volumes: ["./scripts:/range:ro"]
+    networks:
+      lan: { ipv4_address: 192.168.77.66 }
+
+  observer:
+    <<: *priv
+    build: { context: ., dockerfile: Dockerfile.tools }
+    command: ["/range/observer.sh"]
+    volumes: ["./scripts:/range:ro", "./captures:/captures"]
+    networks:
+      internet: { ipv4_address: 203.0.113.99 }
+
+  node:
+    <<: *priv
+    build: { context: ../.., dockerfile: deploy/docker-testbed/Dockerfile.voidwire }
+    command: ["voidwire-node", "run", "--state", "/run/voidwire", "--ram-only", "--name", "range-exit",
+              "--listen-udp", "0.0.0.0:51820", "--listen-quic", "0.0.0.0:443", "--listen-tls", "0.0.0.0:443",
+              "--sni", "www.example.com", "--public-host", "203.0.113.10"]
+    tmpfs: ["/run/voidwire:mode=0700,size=16m"]
+    networks:
+      internet: { ipv4_address: 203.0.113.10 }
+
+  client:
+    <<: *priv
+    build: { context: ../.., dockerfile: deploy/docker-testbed/Dockerfile.voidwire }
+    command: ["/range/client.sh"]
+    environment:
+      VOIDWIRE_STATE_DIR: /var/lib/voidwire
+    volumes: ["./scripts:/range:ro"]
+    depends_on: [node, dpi, isp]
+    networks:
+      lan: { ipv4_address: 192.168.77.20 }
