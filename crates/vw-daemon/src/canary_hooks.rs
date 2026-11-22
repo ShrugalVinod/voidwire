@@ -163,21 +163,26 @@ impl CanaryHooks for DaemonHooks<'_> {
     }
 
     async fn trace(&self) -> Result<String> {
-        let p = Permit::Remote {
-            proto: PROTO_TCP,
-            addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)), 443),
-        };
-        self.gate.permit(p, PROBE_TTL);
-        // Busy free servers drop packets: retry before declaring failure.
+        let permits: Vec<Permit> = crate::platform::IP_CHECKERS
+            .iter()
+            .flat_map(|(_, ips)| ips.iter())
+            .map(|o| Permit::Remote {
+                proto: PROTO_TCP,
+                addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::from(*o)), 443),
+            })
+            .collect();
+        for p in &permits {
+            self.gate.permit(*p, PROBE_TTL * 3);
+        }
+        // Every checker in turn; one retry round for busy free servers.
         let mut r = self.platform.https_trace(false).await;
-        for _ in 0..2 {
-            if r.is_ok() {
-                break;
-            }
+        if r.is_err() {
             tokio::time::sleep(Duration::from_millis(700)).await;
             r = self.platform.https_trace(false).await;
         }
-        self.gate.revoke(p);
+        for p in &permits {
+            self.gate.revoke(*p);
+        }
         r
     }
 }

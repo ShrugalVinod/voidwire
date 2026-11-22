@@ -88,7 +88,7 @@ pub trait Platform: Send + Sync + 'static {
     async fn egress_probe(&self, probe: &EgressProbe) -> EgressOutcome;
     /// Resolve through the OS resolver; true when it answered at all.
     async fn system_resolve(&self, name: &str) -> bool;
-    /// `https://1.1.1.1/cdn-cgi/trace` (marked: outside the tunnel).
+    /// Public-IP check (marked: outside the tunnel); see [`IP_CHECKERS`].
     async fn https_trace(&self, marked: bool) -> Result<String>;
     async fn warp_register(&self, pins: Vec<SocketAddr>, marked: bool) -> Result<WarpAccount>;
     async fn warp_delete(
@@ -317,22 +317,27 @@ impl Platform for OsPlatform {
     }
 
     async fn https_trace(&self, marked: bool) -> Result<String> {
-        let pin = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)), 443);
-        let mut c = Self::https(marked, vec![pin])?;
-        // Short per-attempt timeout; callers retry on busy links.
-        c.timeout = std::time::Duration::from_secs(4);
-        let r = c
-            .request(
-                hyper::Method::GET,
-                "https://1.1.1.1/cdn-cgi/trace",
-                &[],
-                None,
-            )
-            .await?;
-        if r.status != 200 {
-            return Err(VwError::Transport(format!("trace HTTP {}", r.status)));
+        // Several independent checkers: some VPN servers block one of them
+        // (e.g. direct TLS to 1.1.1.1), and one failure must not lock the user
+        // out. The first answer wins; the result is normalised to `ip=...`.
+        let mut last = VwError::Transport("no IP checker answered".into());
+        for (url, ips) in IP_CHECKERS {
+            let pins = ips
+                .iter()
+                .map(|o| SocketAddr::new(IpAddr::V4(Ipv4Addr::from(*o)), 443))
+                .collect();
+            let mut c = Self::https(marked, pins)?;
+            c.timeout = std::time::Duration::from_secs(4);
+            match c.request(hyper::Method::GET, url, &[], None).await {
+                Ok(r) if r.status == 200 => {
+                    let body = String::from_utf8_lossy(&r.body).into_owned();
+                    return Ok(normalize_ip_body(&body));
+                }
+                Ok(r) => last = VwError::Transport(format!("IP checker HTTP {}", r.status)),
+                Err(e) => last = e,
+            }
         }
-        Ok(String::from_utf8_lossy(&r.body).into_owned())
+        Err(last)
     }
 
     async fn warp_register(&self, pins: Vec<SocketAddr>, marked: bool) -> Result<WarpAccount> {
@@ -862,5 +867,48 @@ mod tests {
         assert_eq!(a, id.fingerprint(&[1; 32]));
         assert_ne!(a, id.fingerprint(&[2; 32]));
         assert!(!a.contains("aa:bb"));
+    }
+}
+
+/// Public-IP checkers with pinned anycast addresses (no DNS needed while the
+/// firewall is armed). Cloudflare's trace first: it also reports `warp=on`.
+pub const IP_CHECKERS: &[(&str, &[[u8; 4]])] = &[
+    (
+        "https://1.1.1.1/cdn-cgi/trace",
+        &[[1, 1, 1, 1], [1, 0, 0, 1]],
+    ),
+    (
+        "https://icanhazip.com/",
+        &[[104, 16, 184, 241], [104, 16, 185, 241]],
+    ),
+    (
+        "https://api.ipify.org/",
+        &[[104, 26, 12, 205], [104, 26, 13, 205], [172, 67, 74, 152]],
+    ),
+    ("https://ifconfig.me/ip", &[[34, 160, 111, 145]]),
+];
+
+/// Turn a plain-IP response into the `key=value` trace format.
+pub fn normalize_ip_body(body: &str) -> String {
+    if body.lines().any(|l| l.trim_start().starts_with("ip=")) {
+        return body.to_string();
+    }
+    match body.trim().parse::<IpAddr>() {
+        Ok(ip) => format!("ip={ip}\n"),
+        Err(_) => body.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod ip_check_tests {
+    use super::*;
+
+    #[test]
+    fn normalizes_checker_bodies() {
+        assert_eq!(normalize_ip_body("203.0.113.7\n"), "ip=203.0.113.7\n");
+        let cf = "fl=1\nip=198.51.100.4\nwarp=on\n";
+        assert_eq!(normalize_ip_body(cf), cf);
+        assert_eq!(normalize_ip_body("<html>"), "<html>");
+        assert!(IP_CHECKERS.len() >= 3);
     }
 }

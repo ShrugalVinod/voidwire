@@ -378,15 +378,24 @@ async fn check_identity(ctx: &CanaryContext<'_>, trace: &Result<String>) -> Audi
             Ok(body) => {
                 let warp = trace_field(body, "warp").unwrap_or("absent");
                 t.add("warp", warp.as_bytes());
-                let ok = matches!(warp, "on" | "plus");
-                t.finish(
-                    ok,
-                    if ok {
-                        "Cloudflare reports traffic arriving via WARP".to_string()
-                    } else {
-                        format!("Cloudflare trace says warp={warp}")
-                    },
-                )
+                if warp == "absent" && ctx.baseline_ip_hash.is_some() {
+                    // A non-Cloudflare IP checker answered: WARP status is not
+                    // reported, but `real-ip` still proves the exit changed.
+                    t.finish(
+                        true,
+                        "WARP status not reported by the fallback checker; exit IP change is verified by real-ip",
+                    )
+                } else {
+                    let ok = matches!(warp, "on" | "plus");
+                    t.finish(
+                        ok,
+                        if ok {
+                            "Cloudflare reports traffic arriving via WARP".to_string()
+                        } else {
+                            format!("Cloudflare trace says warp={warp}")
+                        },
+                    )
+                }
             }
             Err(e) => {
                 t.add("error", e.to_string().as_bytes());
@@ -471,7 +480,7 @@ pub async fn run_canary(ctx: &CanaryContext<'_>) -> AuditReport {
     }
     let needs_trace = ctx.exit == ExitIdentity::Warp || ctx.baseline_ip_hash.is_some();
     let trace = if needs_trace {
-        bounded(ctx.probe_timeout, ctx.hooks.trace()).await
+        bounded(ctx.probe_timeout * 3, ctx.hooks.trace()).await
     } else {
         Err(vw_core::VwError::Unsupported("trace not needed"))
     };
