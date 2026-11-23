@@ -34,6 +34,8 @@ Download from [Releases](https://github.com/ShrugalVinod/voidwire/releases):
 are not notarized yet, so macOS blocks the first launch: open **System Settings →
 Privacy & Security**, scroll to "VoidWire was blocked", click **Open Anyway** and
 confirm. (On macOS 14 and older, right-click VoidWire → **Open** also works.)
+If an older download (before v0.1.5) says *"VoidWire is damaged"*, download the
+latest release, or run `xattr -cr /Applications/VoidWire.app` once in Terminal.
 Then click **Install VoidWire service** and enter your password once (it installs
 the background service that controls the firewall and tunnel).
 

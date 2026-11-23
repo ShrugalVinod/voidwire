@@ -110,7 +110,12 @@ jobs:
             - **Windows 11**: `*_x64-setup.exe` or `*_x64_en-US.msi`
             - **Self-hosted exit node (Linux)**: `voidwire-node-*-linux-musl.tar.gz`
 
-            See README.md for first-run steps (unsigned builds need a one-time approval on macOS and Windows).
+            **First launch on macOS:** open the `.dmg`, drag VoidWire into Applications and open it.
+            macOS says it "could not verify" VoidWire because the app is not notarized by Apple yet:
+            open **System Settings → Privacy & Security**, scroll down, click **Open Anyway** and confirm.
+            (macOS 14 or older: right-click VoidWire → Open.) Then click **Install VoidWire service**.
+
+            **First launch on Windows:** if SmartScreen says "Windows protected your PC", click **More info → Run anyway**.
           releaseDraft: false
           prerelease: false
 

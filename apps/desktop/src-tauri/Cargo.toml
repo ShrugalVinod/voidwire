@@ -1,6 +1,6 @@
 [package]
 name = "voidwire-desktop"
-version = "0.1.4"
+version = "0.1.5"
 description = "VoidWire desktop shell: Tauri v2 bridge to the voidwired IPC protocol"
 edition = "2021"
 license = "AGPL-3.0-or-later"
