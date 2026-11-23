@@ -19,7 +19,7 @@ use vw_core::secret::{Key32, SecretVec};
 use vw_core::{Result, VwError};
 use x25519_dalek::{PublicKey, StaticSecret};
 
-use crate::http::HttpsClient;
+use crate::http::{HttpsClient, HttpsUrl};
 
 /// Client version header matching the API build used in `WARP_API_BASE`.
 pub const WARP_CLIENT_VERSION: &str = "a-6.30-2158";
@@ -35,6 +35,12 @@ pub const WARP_ANYCAST_V4: [Ipv4Addr; 6] = [
     Ipv4Addr::new(188, 114, 96, 1),
     Ipv4Addr::new(188, 114, 97, 1),
     Ipv4Addr::new(188, 114, 98, 1),
+];
+/// Anycast addresses of `api.cloudflareclient.com`, used only when no DNS
+/// answer is available.
+pub const WARP_API_FALLBACK_V4: [Ipv4Addr; 2] = [
+    Ipv4Addr::new(162, 159, 143, 174),
+    Ipv4Addr::new(172, 66, 3, 170),
 ];
 pub const WARP_PORTS: [u16; 8] = [2408, 500, 1701, 4500, 878, 894, 908, 2371];
 
@@ -59,6 +65,35 @@ impl WarpRegistrar {
         self
     }
 
+    /// HTTPS client with the API host's addresses pinned. Networks that
+    /// block the WARP API through DNS (schools, offices) or a broken resolver
+    /// must not stop sign-up: system DNS first, then Cloudflare DNS-over-HTTPS,
+    /// then the API's well-known anycast addresses.
+    async fn client(&self) -> HttpsClient {
+        if self.http.pinned.is_some() {
+            return self.http.clone();
+        }
+        let host = HttpsUrl::parse(&self.api_base)
+            .map(|u| u.host)
+            .unwrap_or_default();
+        if let Ok(found) = tokio::net::lookup_host((host.as_str(), 443)).await {
+            let addrs: Vec<SocketAddr> = found.collect();
+            if !addrs.is_empty() {
+                return self.http.clone().with_pinned(addrs);
+            }
+        }
+        if let Ok(ips) = crate::http::bootstrap_resolve(&host, self.http.mark).await {
+            let addrs = ips.into_iter().map(|ip| SocketAddr::new(ip, 443)).collect();
+            return self.http.clone().with_pinned(addrs);
+        }
+        self.http.clone().with_pinned(
+            WARP_API_FALLBACK_V4
+                .iter()
+                .map(|ip| SocketAddr::new(IpAddr::V4(*ip), 443))
+                .collect(),
+        )
+    }
+
     fn headers() -> [(&'static str, &'static str); 1] {
         [("CF-Client-Version", WARP_CLIENT_VERSION)]
     }
@@ -75,7 +110,8 @@ impl WarpRegistrar {
         let body = registration_body(public.as_bytes(), unix_now());
         let url = format!("{}/reg", self.api_base);
         let resp = self
-            .http
+            .client()
+            .await
             .request(Method::POST, &url, &Self::headers(), Some(&body))
             .await?;
         if !(200..300).contains(&resp.status) {
@@ -99,7 +135,8 @@ impl WarpRegistrar {
         let mut headers = Self::headers().to_vec();
         headers.push(("Authorization", auth.as_str()));
         let resp = self
-            .http
+            .client()
+            .await
             .request(
                 Method::PATCH,
                 &url,
@@ -123,7 +160,8 @@ impl WarpRegistrar {
         let mut headers = Self::headers().to_vec();
         headers.push(("Authorization", auth.as_str()));
         let resp = self
-            .http
+            .client()
+            .await
             .request(Method::DELETE, &url, &headers, None)
             .await?;
         if !(200..300).contains(&resp.status) && resp.status != 404 {
