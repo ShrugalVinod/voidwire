@@ -166,7 +166,7 @@ impl HttpsClient {
         body: Option<&serde_json::Value>,
     ) -> Result<HttpResponse> {
         let url = HttpsUrl::parse(url)?;
-        let addrs: Vec<SocketAddr> = match &self.pinned {
+        let mut addrs: Vec<SocketAddr> = match &self.pinned {
             Some(p) => p.clone(),
             None => tokio::net::lookup_host((url.host.as_str(), url.port))
                 .await?
@@ -175,13 +175,22 @@ impl HttpsClient {
         if addrs.is_empty() {
             return Err(VwError::Transport("no addresses for host".into()));
         }
+        // IPv4 first, and a bounded attempt per address: a broken IPv6 path
+        // (or IPv6 blocked by the lockdown) must not eat the whole timeout.
+        addrs.sort_by_key(SocketAddr::is_ipv6);
+        let per_attempt = per_attempt_timeout(self.timeout, addrs.len());
         let mut last_err = None;
         for addr in addrs {
-            match self.exchange(&url, addr, &method, headers, body).await {
-                Ok(r) => return Ok(r),
-                Err(e) => {
+            let attempt = self.exchange(&url, addr, &method, headers, body);
+            match tokio::time::timeout(per_attempt, attempt).await {
+                Ok(Ok(r)) => return Ok(r),
+                Ok(Err(e)) => {
                     tracing::debug!(peer = %vw_core::redact::sock(&addr), "https attempt failed: {e}");
                     last_err = Some(e);
+                }
+                Err(_) => {
+                    tracing::debug!(peer = %vw_core::redact::sock(&addr), "https attempt timed out");
+                    last_err = Some(VwError::Timeout);
                 }
             }
         }
@@ -280,6 +289,13 @@ fn apply_mark(_sock: &TcpSocket, _mark: Option<u32>) -> Result<()> {
     Ok(())
 }
 
+/// Time allowed for one address: an even share of the total, at least 3 s
+/// and never more than the total.
+fn per_attempt_timeout(total: Duration, addrs: usize) -> Duration {
+    let n = u32::try_from(addrs.clamp(1, 4)).unwrap_or(4);
+    (total / n).max(Duration::from_secs(3)).min(total)
+}
+
 /// Resolve `host` via Cloudflare DoH JSON over pinned anycast addresses.
 ///
 /// Used while the firewall is armed: the caller pins `BOOTSTRAP_DOH` first.
@@ -331,6 +347,18 @@ pub const BOOTSTRAP_DOH: [SocketAddr; 2] = [
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn attempt_budget() {
+        let t = Duration::from_secs(15);
+        assert_eq!(per_attempt_timeout(t, 1), t);
+        assert_eq!(per_attempt_timeout(t, 3), Duration::from_secs(5));
+        assert_eq!(per_attempt_timeout(t, 10), Duration::from_millis(3750));
+        assert_eq!(
+            per_attempt_timeout(Duration::from_secs(2), 4),
+            Duration::from_secs(2)
+        );
+    }
 
     #[test]
     fn parse_urls() {
